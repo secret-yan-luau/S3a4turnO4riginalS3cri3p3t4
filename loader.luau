@@ -64,16 +64,16 @@ textLabel.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 textLabel.TextStrokeTransparency = 0
 textLabel.TextScaled = true
 textLabel.Parent = screenGui
-textLabel.ZIndex = 10 -- garantir na frente das imagens
+textLabel.ZIndex = 10
 
--- Audio speed up
+-- Áudio
 local sound = Instance.new("Sound")
 sound.SoundId = "rbxassetid://93155576339935"
-sound.PlaybackSpeed = 1.5 -- speed up
+sound.PlaybackSpeed = 1.5
 sound.Parent = screenGui
 sound:Play()
 
--- Executar frames acumulativos
+-- Frames
 local fps = 4
 local interval = 1 / fps
 
@@ -89,10 +89,12 @@ for repeatCount = 1, 2 do
         frame.Parent = screenGui
         frame.ZIndex = 5
         wait(interval)
+        frame:Destroy() -- destrói o frame antigo antes de criar o próximo
     end
 end
 
-
+-- Destrói o ScreenGui após o último frame do último loop
+screenGui:Destroy()
 
 
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
@@ -8474,5 +8476,6 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
