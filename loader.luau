@@ -1,3 +1,519 @@
+-- Premium Loading Screen (Quadradinhos arredondados - contorno apenas)
+-- Substitui partículas em estrela por quadradinhos com UIStroke
+-- Remove os círculos pulsantes
+-- Versão completa: inclui TitleLabel, SubtitleLabel, PercentageLabel, StatusLabel, DotsLabel
+-- Correções: uso consistente de mainFrame e destruição 1s após 100%
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local LoadingConfig = {
+    Duration = 8,
+    FadeOutTime = 1.5,
+    BarColor = Color3.fromRGB(147, 51, 234),
+    BarGlow = Color3.fromRGB(196, 125, 255),
+    BackgroundColor = Color3.fromRGB(0, 0, 0),
+    TextColor = Color3.fromRGB(255, 255, 255),
+    ParticleCount = 120,
+    ParticleSpeed = 1.8,
+    ParticleSize = 8
+}
+
+local LoadingElements = {
+    "Iniciando sistema...",
+    "Carregando interface...",
+    "Conectando servidores...",
+    "Verificando permissões...",
+    "Carregando scripts...",
+    "Otimizando performance...",
+    "Aplicando configurações...",
+    "Finalizando carregamento...",
+    "Pronto para usar!"
+}
+
+local Particles = {}            -- { frame = Frame, stroke = UIStroke, speedX, speedY, rotationSpeed, pulseSpeed, opacity }
+local AnimationConnections = {} -- armazena Tween e RBXScriptConnection para cleanup
+
+-- Cria um quadradinho arredondado com contorno (sem preenchimento)
+local function CreateSquareParticle(parent, x, y)
+    local square = Instance.new("Frame")
+    square.Name = "SquareParticle"
+    square.Parent = parent
+    square.BackgroundTransparency = 1 -- sem preenchimento
+    square.BorderSizePixel = 0
+    square.Size = UDim2.new(0, LoadingConfig.ParticleSize, 0, LoadingConfig.ParticleSize)
+    square.Position = UDim2.new(0, x, 0, y)
+    square.ZIndex = 8
+    square.AnchorPoint = Vector2.new(0, 0)
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, math.floor(LoadingConfig.ParticleSize * 0.18)) -- arredonda visualmente
+    corner.Parent = square
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Parent = square
+    stroke.Color = LoadingConfig.BarColor
+    stroke.Thickness = math.clamp(math.floor(LoadingConfig.ParticleSize * 0.18), 1, 4)
+    stroke.Transparency = math.random(30, 80) / 100
+
+    local particle = {
+        frame = square,
+        stroke = stroke,
+        speedX = (math.random(-100, 100) / 100) * LoadingConfig.ParticleSpeed,
+        speedY = (math.random(-100, 100) / 100) * LoadingConfig.ParticleSpeed,
+        rotationSpeed = math.random(-90, 90) / 10, -- rotação mais suave
+        pulseSpeed = math.random(8, 16) / 10,      -- frequência de pulsação
+        opacity = math.random(30, 90) / 100
+    }
+
+    return particle
+end
+
+local function CreateParticleSystem(parent)
+    local camera = Workspace.CurrentCamera
+    if not camera then return end
+    local screenSize = camera.ViewportSize
+    for i = 1, LoadingConfig.ParticleCount do
+        local x = math.random(0, screenSize.X)
+        local y = math.random(0, screenSize.Y)
+        local particle = CreateSquareParticle(parent, x, y)
+        table.insert(Particles, particle)
+    end
+end
+
+local function UpdateParticles()
+    local camera = Workspace.CurrentCamera
+    if not camera then return end
+    local screenSize = camera.ViewportSize
+
+    for _, particle in pairs(Particles) do
+        if particle.frame and particle.frame.Parent then
+            local currentPos = particle.frame.Position
+            local newX = currentPos.X.Offset + particle.speedX
+            local newY = currentPos.Y.Offset + particle.speedY
+
+            if newX < -20 then
+                newX = screenSize.X + 20
+            elseif newX > screenSize.X + 20 then
+                newX = -20
+            end
+
+            if newY < -20 then
+                newY = screenSize.Y + 20
+            elseif newY > screenSize.Y + 20 then
+                newY = -20
+            end
+
+            particle.frame.Position = UDim2.new(0, newX, 0, newY)
+            particle.frame.Rotation = (particle.frame.Rotation or 0) + particle.rotationSpeed * (RunService:IsStudio() and (1/60) or 1) * 0.6
+
+            -- pulso na transparência do stroke (contorno)
+            local pulseValue = math.sin(tick() * particle.pulseSpeed) * 0.25 + 0.75 -- [0.5,1.0]
+            if particle.stroke then
+                particle.stroke.Transparency = 1 - (particle.opacity * pulseValue)
+            end
+        end
+    end
+end
+
+-- Background avançado
+local function CreateAdvancedBackground(parent)
+    local bgFrame = Instance.new("Frame")
+    bgFrame.Name = "AdvancedBackground"
+    bgFrame.Parent = parent
+    bgFrame.BackgroundColor3 = LoadingConfig.BackgroundColor
+    bgFrame.BorderSizePixel = 0
+    bgFrame.Size = UDim2.new(1, 0, 1, 0)
+    bgFrame.Position = UDim2.new(0, 0, 0, 0)
+    bgFrame.ZIndex = 1
+
+    local gradient1 = Instance.new("UIGradient")
+    gradient1.Parent = bgFrame
+    gradient1.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 5, 20)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(0, 0, 0)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(10, 0, 15)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+    })
+    gradient1.Rotation = 45
+
+    local animateGradient = TweenService:Create(
+        gradient1,
+        TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Rotation = 225}
+    )
+    animateGradient:Play()
+    table.insert(AnimationConnections, animateGradient)
+
+    local overlay = Instance.new("Frame")
+    overlay.Name = "Overlay"
+    overlay.Parent = bgFrame
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BorderSizePixel = 0
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.Position = UDim2.new(0, 0, 0, 0)
+    overlay.ZIndex = 2
+    overlay.BackgroundTransparency = 0.3
+
+    local overlayGradient = Instance.new("UIGradient")
+    overlayGradient.Parent = overlay
+    overlayGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 0, 30)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 0, 0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 20))
+    })
+    overlayGradient.Rotation = -45
+
+    local animateOverlay = TweenService:Create(
+        overlayGradient,
+        TweenInfo.new(6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Rotation = 315}
+    )
+    animateOverlay:Play()
+    table.insert(AnimationConnections, animateOverlay)
+
+    return bgFrame
+end
+
+-- Cria a UI completa
+local function CreateLoadingScreen()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "PremiumLoadingScreen"
+    ScreenGui.Parent = PlayerGui
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ScreenInsets = Enum.ScreenInsets.None
+    ScreenGui.IgnoreGuiInset = true
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Parent = ScreenGui
+    mainFrame.BackgroundColor3 = LoadingConfig.BackgroundColor
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Size = UDim2.new(1, 0, 1, 0)
+    mainFrame.Position = UDim2.new(0, 0, 0, 0)
+    mainFrame.ZIndex = 10
+
+    CreateAdvancedBackground(mainFrame)
+    CreateParticleSystem(mainFrame)
+
+    local CenterContainer = Instance.new("Frame")
+    CenterContainer.Name = "CenterContainer"
+    CenterContainer.Parent = mainFrame
+    CenterContainer.BackgroundTransparency = 1
+    CenterContainer.Size = UDim2.new(0, 600, 0, 400)
+    CenterContainer.Position = UDim2.new(0.5, -300, 0.5, -200)
+    CenterContainer.ZIndex = 11
+
+    -- Title (grande)
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Parent = CenterContainer
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Size = UDim2.new(1, 0, 0, 80)
+    TitleLabel.Position = UDim2.new(0, 0, 0, 0)
+    TitleLabel.Text = "Nytherune Hub"
+    TitleLabel.TextColor3 = LoadingConfig.TextColor
+    TitleLabel.TextScaled = true
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.ZIndex = 12
+
+    local titleStroke = Instance.new("UIStroke")
+    titleStroke.Parent = TitleLabel
+    titleStroke.Color = LoadingConfig.BarColor
+    titleStroke.Thickness = 2
+    titleStroke.Transparency = 0.5
+
+    local TitleGradient = Instance.new("UIGradient")
+    TitleGradient.Parent = TitleLabel
+    TitleGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, LoadingConfig.BarColor),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, LoadingConfig.BarColor)
+    })
+    -- animação sutil do título (se a property existir)
+    local success, titleAnim = pcall(function()
+        return TweenService:Create(
+            TitleGradient,
+            TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            {Offset = Vector2.new(2, 0)}
+        )
+    end)
+    if success and titleAnim then
+        titleAnim:Play()
+        table.insert(AnimationConnections, titleAnim)
+    end
+
+    local glowTween = TweenService:Create(
+        titleStroke,
+        TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Transparency = 0.1}
+    )
+    glowTween:Play()
+    table.insert(AnimationConnections, glowTween)
+
+    -- Subtitle
+    local SubtitleLabel = Instance.new("TextLabel")
+    SubtitleLabel.Name = "SubtitleLabel"
+    SubtitleLabel.Parent = CenterContainer
+    SubtitleLabel.BackgroundTransparency = 1
+    SubtitleLabel.Size = UDim2.new(1, 0, 0, 40)
+    SubtitleLabel.Position = UDim2.new(0, 0, 0, 90)
+    SubtitleLabel.Text = "Carregando experiência premium..."
+    SubtitleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    SubtitleLabel.TextScaled = true
+    SubtitleLabel.Font = Enum.Font.Gotham
+    SubtitleLabel.ZIndex = 12
+
+    -- Progress bar container
+    local ProgressContainer = Instance.new("Frame")
+    ProgressContainer.Name = "ProgressContainer"
+    ProgressContainer.Parent = CenterContainer
+    ProgressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    ProgressContainer.BorderSizePixel = 0
+    ProgressContainer.Size = UDim2.new(1, 0, 0, 25)
+    ProgressContainer.Position = UDim2.new(0, 0, 0, 160)
+    ProgressContainer.ZIndex = 12
+
+    local ProgressCorner = Instance.new("UICorner")
+    ProgressCorner.CornerRadius = UDim.new(0, 12)
+    ProgressCorner.Parent = ProgressContainer
+
+    local ProgressStroke = Instance.new("UIStroke")
+    ProgressStroke.Parent = ProgressContainer
+    ProgressStroke.Color = LoadingConfig.BarGlow
+    ProgressStroke.Thickness = 2
+    ProgressStroke.Transparency = 0.3
+
+    local strokePulse = TweenService:Create(
+        ProgressStroke,
+        TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Transparency = 0.1}
+    )
+    strokePulse:Play()
+    table.insert(AnimationConnections, strokePulse)
+
+    local ProgressBar = Instance.new("Frame")
+    ProgressBar.Name = "ProgressBar"
+    ProgressBar.Parent = ProgressContainer
+    ProgressBar.BackgroundColor3 = LoadingConfig.BarColor
+    ProgressBar.BorderSizePixel = 0
+    ProgressBar.Size = UDim2.new(0, 0, 1, 0)
+    ProgressBar.Position = UDim2.new(0, 0, 0, 0)
+    ProgressBar.ZIndex = 13
+
+    local BarCorner = Instance.new("UICorner")
+    BarCorner.CornerRadius = UDim.new(0, 12)
+    BarCorner.Parent = ProgressBar
+
+    local BarGradient = Instance.new("UIGradient")
+    BarGradient.Parent = ProgressBar
+    BarGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, LoadingConfig.BarColor),
+        ColorSequenceKeypoint.new(0.5, LoadingConfig.BarGlow),
+        ColorSequenceKeypoint.new(1, LoadingConfig.BarColor)
+    })
+
+    local barGradientAnim = TweenService:Create(
+        BarGradient,
+        TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Offset = Vector2.new(1, 0)}
+    )
+    barGradientAnim:Play()
+    table.insert(AnimationConnections, barGradientAnim)
+
+    local GlowEffect = Instance.new("Frame")
+    GlowEffect.Name = "GlowEffect"
+    GlowEffect.Parent = ProgressBar
+    GlowEffect.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    GlowEffect.BackgroundTransparency = 0.6
+    GlowEffect.BorderSizePixel = 0
+    GlowEffect.Size = UDim2.new(0, 60, 1, 0)
+    GlowEffect.Position = UDim2.new(-0.2, 0, 0, 0)
+    GlowEffect.ZIndex = 14
+
+    local GlowCorner = Instance.new("UICorner")
+    GlowCorner.CornerRadius = UDim.new(0, 12)
+    GlowCorner.Parent = GlowEffect
+
+    -- Percentage label grande
+    local PercentageLabel = Instance.new("TextLabel")
+    PercentageLabel.Name = "PercentageLabel"
+    PercentageLabel.Parent = CenterContainer
+    PercentageLabel.BackgroundTransparency = 1
+    PercentageLabel.Size = UDim2.new(1, 0, 0, 40)
+    PercentageLabel.Position = UDim2.new(0, 0, 0, 200)
+    PercentageLabel.Text = "0%"
+    PercentageLabel.TextColor3 = LoadingConfig.BarColor
+    PercentageLabel.TextScaled = true
+    PercentageLabel.Font = Enum.Font.GothamBold
+    PercentageLabel.ZIndex = 12
+
+    -- Status label (mensagens de LoadingElements)
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = CenterContainer
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+    StatusLabel.Position = UDim2.new(0, 0, 0, 250)
+    StatusLabel.Text = "Preparando..."
+    StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    StatusLabel.TextScaled = true
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.ZIndex = 12
+
+    -- Dots label (anima ...)
+    local DotsLabel = Instance.new("TextLabel")
+    DotsLabel.Name = "DotsLabel"
+    DotsLabel.Parent = CenterContainer
+    DotsLabel.BackgroundTransparency = 1
+    DotsLabel.Size = UDim2.new(0, 60, 0, 30)
+    DotsLabel.Position = UDim2.new(1, -60, 0, 250)
+    DotsLabel.Text = ""
+    DotsLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    DotsLabel.TextScaled = true
+    DotsLabel.Font = Enum.Font.Gotham
+    DotsLabel.ZIndex = 12
+
+    return ScreenGui, mainFrame, ProgressBar, PercentageLabel, StatusLabel, DotsLabel, GlowEffect
+end
+
+-- Animação de pontos "..."
+local function AnimateDots(dotsLabel)
+    task.spawn(function()
+        local dotCount = 0
+        while dotsLabel and dotsLabel.Parent do
+            dotCount = (dotCount + 1) % 4
+            dotsLabel.Text = string.rep(".", dotCount)
+            task.wait(0.4)
+        end
+    end)
+end
+
+-- Sequência de loading (loop de progresso)
+local function StartLoadingSequence()
+    local screenGui, mainFrame, progressBar, percentageLabel, statusLabel, dotsLabel, glowEffect = CreateLoadingScreen()
+    AnimateDots(dotsLabel)
+
+    -- Atualiza partículas todo frame
+    local particleConnection = RunService.Heartbeat:Connect(UpdateParticles)
+    table.insert(AnimationConnections, particleConnection)
+
+    -- Animação de brilho da barra (glow)
+    local glowTween = TweenService:Create(
+        glowEffect,
+        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Position = UDim2.new(1.3, 0, 0, 0)}
+    )
+    glowTween:Play()
+    table.insert(AnimationConnections, glowTween)
+
+    local startTime = tick()
+    local currentElementIndex = 1
+    local lastElementTime = startTime
+
+    -- loop controlando progresso
+    while true do
+        local elapsed = tick() - startTime
+        local progress = math.min(elapsed / LoadingConfig.Duration, 1)
+        local percentage = math.floor(progress * 100)
+
+        -- tween barra
+        local barTween = TweenService:Create(
+            progressBar,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Size = UDim2.new(progress, 0, 1, 0)}
+        )
+        barTween:Play()
+        table.insert(AnimationConnections, barTween)
+
+        percentageLabel.Text = tostring(percentage) .. "%"
+
+        local elementTime = LoadingConfig.Duration / #LoadingElements
+        if tick() - lastElementTime >= elementTime and currentElementIndex <= #LoadingElements then
+            statusLabel.Text = LoadingElements[currentElementIndex]
+            -- leve animação de aparecimento (text transparency)
+            local statusTween = TweenService:Create(
+                statusLabel,
+                TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                {TextTransparency = 0}
+            )
+            pcall(function() statusTween:Play() end)
+            table.insert(AnimationConnections, statusTween)
+
+            currentElementIndex = currentElementIndex + 1
+            lastElementTime = tick()
+        end
+
+        if progress >= 1 then
+            -- espera 1 segundo após 100% antes de iniciar fade/destruição
+            task.wait(1)
+
+            -- disconnect tweens e conexões
+            for _, connection in pairs(AnimationConnections) do
+                if typeof(connection) == "RBXScriptConnection" then
+                    pcall(function() connection:Disconnect() end)
+                elseif typeof(connection) == "Tween" then
+                    pcall(function() connection:Cancel() end)
+                end
+            end
+            AnimationConnections = {}
+
+            -- destruir partículas (frames)
+            for _, particle in pairs(Particles) do
+                if particle and particle.frame and particle.frame.Parent then
+                    pcall(function() particle.frame:Destroy() end)
+                end
+            end
+            Particles = {}
+
+            -- fade out e remoção da GUI
+            local fadeOutTween = TweenService:Create(
+                mainFrame,
+                TweenInfo.new(LoadingConfig.FadeOutTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                {
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1.5, 0, 1.5, 0),
+                    Position = UDim2.new(-0.25, 0, -0.25, 0)
+                }
+            )
+
+            -- center content shrink (se existir CenterContainer)
+            local center = mainFrame:FindFirstChild("CenterContainer")
+            if center then
+                local contentFadeTween = TweenService:Create(
+                    center,
+                    TweenInfo.new(LoadingConfig.FadeOutTime * 0.7, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+                    {
+                        Size = UDim2.new(0, 0, 0, 0),
+                        Position = UDim2.new(0.5, 0, 0.5, 0)
+                    }
+                )
+                pcall(function() contentFadeTween:Play() end)
+            end
+
+            fadeOutTween:Play()
+            fadeOutTween.Completed:Connect(function()
+                if screenGui and screenGui.Parent then
+                    pcall(function() screenGui:Destroy() end)
+                end
+            end)
+
+            break
+        end
+
+        RunService.Heartbeat:Wait()
+    end
+end
+
+-- Start
+StartLoadingSequence()
+
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
     [1] = "RolePlayBio",
     [2] = "Nytherune Hub 2",
@@ -10964,4 +11480,5 @@ UniversalTab:AddButton({
     end
 
 })
+
 
