@@ -9,61 +9,110 @@ print("Checking the connection:", found)
 
 
 
-
-
--- LocalScript (StarterGui)
-
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
 local gui = Instance.new("ScreenGui")
+gui.Name = "IntroUI"
 gui.Parent = player:WaitForChild("PlayerGui")
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
 
--- criar som
-local sound = Instance.new("Sound")
-sound.SoundId = "rbxassetid://9044739323"
-sound.Volume = 1
-sound.Looped = false
-sound.Parent = gui
-sound:Play()
+-- Fundo
+local bg = Instance.new("Frame")
+bg.Size = UDim2.fromScale(1, 1)
+bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+bg.BorderSizePixel = 0
+bg.Parent = gui
 
--- IDs dos frames
-local frameIds = {
-    71328262035877,
-    122295376545922,
-    125587592853099,
-    138163331047706,
-    134260527867226,
-    101584766183579,
-    92668893513626,
-    131272121171013,
-    89032141002471,
-    116380083822123,
-    89437758779520,
-    74811250105127,
-    75855777689708,
-    80073057318316,
-    85369955272895,
-    79316108713997,
-    124710662115935,
-}
+-- Texto central
+local title = Instance.new("TextLabel")
+title.Text = "Nytherune Hub"
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.AnchorPoint = Vector2.new(0.5, 0.5)
+title.Position = UDim2.fromScale(0.5, 0.4)
+title.Size = UDim2.fromScale(0.6, 0.2)
+title.Parent = bg
 
--- 5 FPS = 0.2 segundos por frame
-local frameDelay = 1 / 5
+-- Barra de carregamento (fundo)
+local barBG = Instance.new("Frame")
+barBG.Size = UDim2.new(0.5, 0, 0.03, 0)
+barBG.Position = UDim2.fromScale(0.25, 0.65)
+barBG.BackgroundColor3 = Color3.fromRGB(60, 0, 60)
+barBG.BorderSizePixel = 0
+barBG.Parent = bg
 
-for _, id in ipairs(frameIds) do
-    local imageLabel = Instance.new("ImageLabel")
-    imageLabel.Size = UDim2.new(1, 0, 1, 0)
-    imageLabel.Position = UDim2.new(0, 0, 0, 0)
-    imageLabel.BackgroundTransparency = 1
-    imageLabel.Image = "rbxassetid://" .. id
-    imageLabel.Parent = gui
+local barFill = Instance.new("Frame")
+barFill.Size = UDim2.new(0, 0, 1, 0)
+barFill.BackgroundColor3 = Color3.fromRGB(170, 0, 255)
+barFill.BorderSizePixel = 0
+barFill.Parent = barBG
 
-    task.wait(frameDelay)
+-- Função para criar quadrados partículas
+local function createSquare()
+    local sq = Instance.new("Frame")
+    sq.Size = UDim2.fromOffset(math.random(30, 60), math.random(30, 60))
+    sq.Position = UDim2.fromScale(math.random(), -0.1)
+    sq.BackgroundTransparency = 1
+    sq.AnchorPoint = Vector2.new(0.5, 0.5)
+    sq.Parent = bg
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.3, 0)
+    corner.Parent = sq
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(255, 140, 0)
+    stroke.Parent = sq
+
+    -- movimento
+    task.spawn(function()
+        local rotation = math.random(-30, 30)
+        local duration = math.random(4, 7)
+        local goal = {
+            Position = UDim2.fromScale(math.random(), 1.2),
+            Rotation = rotation
+        }
+        local tween = TweenService:Create(sq, TweenInfo.new(duration, Enum.EasingStyle.Linear), goal)
+        tween:Play()
+        tween.Completed:Wait()
+        sq:Destroy()
+    end)
 end
 
--- destruir tudo quando o som acabar
-sound.Ended:Wait()
-gui:Destroy()
+-- Spawner de partículas
+task.spawn(function()
+    while gui.Parent do
+        createSquare()
+        task.wait(0.2)
+    end
+end)
+
+-- Animação da barra de carregamento
+TweenService:Create(barFill, TweenInfo.new(5, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+
+-- Após 5s, fade out
+task.delay(5, function()
+    local fadeTween = TweenService:Create(bg, TweenInfo.new(1), {BackgroundTransparency = 1})
+    fadeTween:Play()
+    for _, obj in ipairs(bg:GetDescendants()) do
+        if obj:IsA("TextLabel") then
+            TweenService:Create(obj, TweenInfo.new(1), {TextTransparency = 1}):Play()
+        elseif obj:IsA("Frame") then
+            TweenService:Create(obj, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+        elseif obj:IsA("UIStroke") then
+            TweenService:Create(obj, TweenInfo.new(1), {Transparency = 1}):Play()
+        end
+    end
+    fadeTween.Completed:Wait()
+    gui:Destroy()
+end)
 
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
     [1] = "RolePlayBio",
@@ -7992,6 +8041,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
