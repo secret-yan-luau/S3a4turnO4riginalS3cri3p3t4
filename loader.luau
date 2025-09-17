@@ -113,6 +113,20 @@ task.delay(5, function()
     fadeTween.Completed:Wait()
     gui:Destroy()
 end)
+-- LocalScript (StarterGui)
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local gui = Instance.new("ScreenGui")
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://9044739323"
+sound.Volume = 1
+sound.Looped = false
+sound.Parent = gui
+sound:Play()
+
 
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
     [1] = "RolePlayBio",
@@ -8041,6 +8055,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
