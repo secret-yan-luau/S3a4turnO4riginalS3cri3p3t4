@@ -2267,7 +2267,7 @@ end
 
     Troll:AddDropdown({
         Name = "Select Killing Method",
-        Options = {"Bus", "Couch", "Doors", "Couch without going to the target"},
+        Options = {"Bus", "Couch", "Couch without going to the target"},
         Default = "Bus",
         Callback = function(value)
             methodKill = value
@@ -2284,8 +2284,6 @@ end
                 KillPlayerCouch()
             elseif methodKill == "Couch without going to the target" then
                 KillWithCouch()
-            elseif methodKill == "Doors" then
-                DoorFlingPlayer()
             else
                 local character = LocalPlayer.Character
                 local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
@@ -7938,6 +7936,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
