@@ -18,7 +18,7 @@ game:GetService("ReplicatedStorage").RE["1RPNam1eColo1r"]:FireServer(table.unpac
     [2] = Color3.new(255, 255, 255),
 }))
 
-local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/toparemos/Library/refs/heads/main/library.lua"))()
+local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/NytheruneLibrary/refs/heads/main/Redzhubui.txt"))()
 workspace.FallenPartsDestroyHeight = -math.huge
 
 local Window = Libary:MakeWindow({
@@ -10964,3 +10964,4 @@ UniversalTab:AddButton({
     end
 
 })
+
