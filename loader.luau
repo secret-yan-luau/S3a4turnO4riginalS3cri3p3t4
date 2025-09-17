@@ -66,6 +66,25 @@ textLabel.TextScaled = true
 textLabel.Parent = screenGui
 textLabel.ZIndex = 10
 
+-- Botão "Skip Intro"
+local skipButton = Instance.new("TextButton")
+skipButton.Size = UDim2.new(0, 150, 0, 50) -- tamanho do botão
+skipButton.Position = UDim2.new(0.85, 0, 0.9, 0) -- canto inferior direito
+skipButton.AnchorPoint = Vector2.new(0.5, 0.5)
+skipButton.BackgroundColor3 = Color3.fromRGB(128, 0, 128) -- roxo
+skipButton.Text = "Skip Intro"
+skipButton.Font = Enum.Font.BuilderSans
+skipButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+skipButton.TextScaled = true
+skipButton.Parent = screenGui
+skipButton.ZIndex = 20 -- sempre na frente
+
+-- Evento de clique
+skipButton.MouseButton1Click:Connect(function()
+    sound:Stop() -- para o áudio
+    screenGui:Destroy() -- destrói o GUI
+end)
+
 -- Áudio
 local sound = Instance.new("Sound")
 sound.SoundId = "rbxassetid://93155576339935"
@@ -8476,6 +8495,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
