@@ -11,7 +11,86 @@ print("Checking the connection:", found)
 
 
 
+local frameIds = {
+    126236556586764,
+    136412915020251,
+    118280109681409,
+    101381777744900,
+    102672201310426,
+    124200335226270,
+    89407138360978,
+    111538665898847,
+    109147998960875,
+    96634424934105,
+    121058843996793,
+    124085269518949,
+    80121979897261,
+    105390718040660,
+    81239864778767,
+    93607458795390,
+    129395887027556,
+    96412008726713,
+    131052168057364
+}
 
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NytheruneHubVideo"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Fundo borrado
+local background = Instance.new("ImageLabel")
+background.Size = UDim2.new(2, 0, 2, 0)
+background.Position = UDim2.new(-0.5, 0, -0.5, 0)
+background.Image = "rbxassetid://94067569796788"
+background.BackgroundTransparency = 1
+background.ScaleType = Enum.ScaleType.Crop
+background.Parent = screenGui
+background.ZIndex = 0
+
+-- Texto centralizado
+local textLabel = Instance.new("TextLabel")
+textLabel.Size = UDim2.new(1, 0, 0.2, 0)
+textLabel.Position = UDim2.new(0, 0, 0.4, 0)
+textLabel.BackgroundTransparency = 1
+textLabel.Text = "Nytherune Hub"
+textLabel.Font = Enum.Font.BuilderSansBold
+textLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+textLabel.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+textLabel.TextStrokeTransparency = 0
+textLabel.TextScaled = true
+textLabel.Parent = screenGui
+textLabel.ZIndex = 10 -- garantir na frente das imagens
+
+-- Audio speed up
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://93155576339935"
+sound.PlaybackSpeed = 1.5 -- speed up
+sound.Parent = screenGui
+sound:Play()
+
+-- Executar frames acumulativos
+local fps = 4
+local interval = 1 / fps
+
+for repeatCount = 1, 2 do
+    for i, id in ipairs(frameIds) do
+        local frame = Instance.new("ImageLabel")
+        frame.Size = UDim2.new(0, 1280, 0, 720)
+        frame.AnchorPoint = Vector2.new(0.5, 0.5)
+        frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        frame.BackgroundTransparency = 1
+        frame.ScaleType = Enum.ScaleType.Fit
+        frame.Image = "rbxassetid://" .. id
+        frame.Parent = screenGui
+        frame.ZIndex = 5
+        wait(interval)
+    end
+end
 
 
 
@@ -7959,6 +8038,151 @@ end
 
 
 
+local ToolsTab = Window:MakeTab({"Itens [ Update! ]", "backpack"})
+
+
+    
+        
+
+-- Referências aos remotes
+local cleartoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clea1rTool1s")
+local picktoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l")
+
+-- Seção de controle de itens
+local Section = ToolsTab:AddSection({
+    Name = "Items Control"
+})
+
+-- Botão para limpar todas as ferramentas
+ToolsTab:AddButton({
+    Name = "Clear All Tools",
+    Callback = function()
+        local args = {
+            [1] = "ClearAllTools"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("RE"):WaitForChild("1Clea1rTool1s"):FireServer(unpack(args))
+    end
+})
+
+-- Seção para equipar itens
+Section = ToolsTab:AddSection({
+    Name = "Equip Items"
+})
+
+-- Botão para equipar todos os itens
+ToolsTab:AddButton({
+    Name = "Equipar todos os itens",
+    Callback = function()
+        for _, tool in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool.Parent = game.Players.LocalPlayer.Character
+            end
+        end
+    end
+})
+
+-- Seção para Testes
+Section = ToolsTab:AddSection({
+    Name = "Super Aura Things/Tools"
+})
+
+
+
+
+
+                          
+-- Botão para Super Aura Smoke
+ToolsTab:AddButton({
+    Name = "Super Aura Smoke [ NEW ! ]",
+    Description = "A aura vai aparecer se vc segurar a tela, aí a fumaça vai aparecendo!",
+    Callback = function()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Caminho do FireX
+local fireXPath = workspace:FindFirstChild("WorkspaceCom") 
+    and workspace.WorkspaceCom:FindFirstChild("001_GiveTools") 
+    and workspace.WorkspaceCom["001_GiveTools"]:FindFirstChild("FireX")
+
+local nametools = "crystal nazi lel"
+local oldcframe = LocalPlayer.Character.HumanoidRootPart.CFrame
+local attempts = 57
+local delayBetweenClicks = 0.3
+
+-- Grip e Handle
+local gripBase = CFrame.new(-0.290086746, 0.0755810738, -0.0109872818, 0.0439560413, 0.509705901, -0.859225094, -0.0591450632, -0.857220173, -0.511542261, -0.997281134, 0.0733042806, -0.00753343105)
+local handleOffset = CFrame.new(2, 1, -3)
+
+-- Velocidade absurda de rotação (sempre)
+local rotSpeed = math.rad(3600) -- 3600°/s
+
+-- Função de clique na ferramenta
+local function clickTool(object)
+    local clickDetector = object:FindFirstChildWhichIsA("ClickDetector")
+    if clickDetector then
+        fireclickdetector(clickDetector)
+    end
+end
+
+-- Configura Grip e Handle
+local function setupTool(tool)
+    tool.Grip = gripBase
+    tool.Name = nametools
+
+    local handle = tool:FindFirstChild("Handle")
+    if handle then
+        local weld = handle:FindFirstChildWhichIsA("Motor6D")
+        if weld then weld:Destroy() end
+
+        -- HandleOffset fixo
+        RunService.RenderStepped:Connect(function()
+            if handle.Parent == LocalPlayer.Character then
+                handle.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * handleOffset
+            end
+        end)
+    end
+
+    tool.Parent = LocalPlayer.Character
+end
+
+-- Rotação contínua infinita
+RunService.RenderStepped:Connect(function(deltaTime)
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, rotSpeed * deltaTime, 0)
+    end
+end)
+
+-- Função de duplicação do FireX
+local function dupeToolsFireX(fireXPath)
+    if not fireXPath then
+        warn("FireX não encontrado.")
+        return
+    end
+
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    hrp.CFrame = fireXPath.CFrame
+
+    for i = 1, attempts do
+        clickTool(fireXPath)
+        task.wait(delayBetweenClicks)
+
+        local tool = LocalPlayer.Backpack:FindFirstChild("FireX")
+        if tool then
+            setupTool(tool)
+        end
+    end
+
+    hrp.CFrame = oldcframe
+end
+
+-- Executa o dupe
+dupeToolsFireX(fireXPath)
+    end
+})
                                                                                                                         
                                                     
 
@@ -8250,4 +8474,5 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
