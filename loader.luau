@@ -1,11 +1,11 @@
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
     [1] = "RolePlayBio",
-    [2] = "In Execution",
+    [2] = "Nytherune Hub 2",
 }))
 
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
     [1] = "RolePlayName",
-    [2] = "ま S4turn Hub",
+    [2] = "[ Nytherune Hub User ]",
 }))
 
 game:GetService("ReplicatedStorage").RE["1RPNam1eColo1r"]:FireServer(table.unpack({
@@ -22,10 +22,10 @@ local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/topare
 workspace.FallenPartsDestroyHeight = -math.huge
 
 local Window = Libary:MakeWindow({
-    Title = "た S4turn Hub",
+    Title = "🌌 Nytherune Hub 2 🌌 - New Update for Nytherune Brookhaven Script",
     SubTitle = "English - Brookhaven RP 🏡",
-    LoadText = "S4turn Developers",
-    Flags = "S4Dev_Broookhaven"
+    LoadText = "Nytherune Developers",
+    Flags = "Nytherune_Broookhaven"
 })
 
 Window:AddMinimizeButton({
@@ -38,15 +38,15 @@ local InfoTab = Window:MakeTab({ "Informations", "info" })
 InfoTab:AddSection({ "Informations" })
 
 InfoTab:AddSection({ "Credits" })
-InfoTab:AddParagraph({ "Programmer:", "@toparemos" })
-InfoTab:AddParagraph({ "Team:", "S4turn Developers" })
+InfoTab:AddParagraph({ "Programmer:", "WxDeveloper" })
+InfoTab:AddParagraph({ "Team:", "Nytherune Developers" })
 
 InfoTab:AddSection({ "Discord" })
 InfoTab:AddDiscordInvite({
-    Name = "⽦ Fallen Studios",
+    Name = "Nytherune Developers",
     Description = "Stay up to date with all the news from our Hub",
     Logo = "rbxassetid://112577912202044",
-    Invite = "dsc.gg/GFUzfbKpwN",
+    Invite = "dsc.gg/nytherune",
 })
 
 InfoTab:AddSection({ "Information" })
@@ -93,13 +93,10 @@ for key, value in pairs(info) do
 end
 InfoTab:AddParagraph({ "You Language:", "English" })
 InfoTab:AddParagraph({ "You are Playing:", "Brookhaven RP 🏡" })
-InfoTab:AddParagraph({ "You are Using:", "も S4turn Hub" })
+InfoTab:AddParagraph({ "You are Using:", "Nytherune Hub" })
 InfoTab:AddParagraph({ "You are Using Version:", "1.1.5 - Beta" })
 
 InfoTab:AddSection({ "Warns" })
-InfoTab:AddParagraph({ "All the functions in this script are not made by us, they are from other scripters" })
-InfoTab:AddParagraph({ "We are using Nytherune, Chaos, Coquette as the base for our scripter" })
-InfoTab:AddParagraph({ "Found an error? Just report it to one of our programmers" })
 
 InfoTab:AddSection({ "Others" })
 InfoTab:AddButton({
@@ -109,19 +106,7 @@ InfoTab:AddButton({
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, game.Players.LocalPlayer)
     end
 })
---[[
-local ADT = Window:MakeTab({ "Administrator", "code" })
 
-ADT:AddSection({ "Administrator" })
-
-ADT:AddSection({ "Administrator Limited" })
-ShadersTab:AddButton({
-Name = "Execute",
-Callback = function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/toparemos/Source/refs/heads/main/Games/Brookhaven/Administrator/loader.lua"))()
-end
-})
---]]
 local GamePTab = Window:MakeTab({ "Spoofed Gamepass", "gamepad" })
 
 GamePTab:AddSection({ "Spoofed Gamepass" })
@@ -10977,4 +10962,5 @@ UniversalTab:AddButton({
     Callback = function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/SAZXHUB/Control-update/main/README.md", true))()
     end
+
 })
