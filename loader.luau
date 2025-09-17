@@ -89,8 +89,8 @@ local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sou
 workspace.FallenPartsDestroyHeight = -math.huge
 
 local Window = Libary:MakeWindow({
-    Title = "🌌 Nytherune Hub 2 🌌 - New Update for Nytherune Brookhaven Script",
-    SubTitle = "English - Brookhaven RP 🏡",
+    Title = "🌌 Nytherune Hub 2.0.1 + 🌌 - New Update for Nytherune Brookhaven Script",
+    SubTitle = "Updated - Brookhaven RP 🏡",
     LoadText = "Nytherune Developers",
     Flags = "Nytherune_Broookhaven"
 })
@@ -7992,6 +7992,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
