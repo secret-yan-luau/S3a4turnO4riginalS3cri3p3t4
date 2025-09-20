@@ -1,27 +1,38 @@
--- LocalScript (StarterPlayerScripts)
+-- LocalScript (exploit Brookhaven)
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- Funções nativas
-local HttpGet = game.HttpGet
-local HttpGetAsync = game.HttpGetAsync
+-- Contadores de requisição
+local getCount = 0
 
--- Detectar hooks / overloading em funções
-local function detectHttpSpy()
-    -- Se a função foi modificada (hooked), ela não será mais igual à original
-    if tostring(HttpGet) ~= "function" or tostring(HttpGetAsync) ~= "function" then
-        -- Kickar jogador via RemoteEvent ou fechar o jogo local
-        player:Kick("Nice try.")
+-- Guardar funções originais
+local origHttpGet = game.HttpGet
+local origHttpGetAsync = game.HttpGetAsync
+
+-- Função de detecção
+local function detectMultipleGET(caller)
+    getCount = getCount + 1
+    if getCount > 1 then
+        player:Kick("Detecção de múltiplas requisições Http.")
     end
 end
 
--- Rodar a checagem de forma periódica
-while true do
-    detectHttpSpy()
-    wait(1) -- checar a cada 1 segundo
+-- Sobrescrever HttpGet
+game.HttpGet = function(...)
+    detectMultipleGET(debug.getinfo(2, "S").source)
+    return origHttpGet(...)
 end
 
+-- Sobrescrever HttpGetAsync
+game.HttpGetAsync = function(...)
+    detectMultipleGET(debug.getinfo(2, "S").source)
+    return origHttpGetAsync(...)
+end
+
+-- Exemplo de uso do seu exploit:
+-- game.HttpGet("https://meuservidor.com/recurso") -- primeira requisição OK
+-- Segunda requisição vai triggerar o kick
 
 
 local success, content = pcall(function()
@@ -8197,6 +8208,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
