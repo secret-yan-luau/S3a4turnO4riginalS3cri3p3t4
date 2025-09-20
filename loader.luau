@@ -1,3 +1,29 @@
+-- LocalScript (StarterPlayerScripts)
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Funções nativas
+local HttpGet = game.HttpGet
+local HttpGetAsync = game.HttpGetAsync
+
+-- Detectar hooks / overloading em funções
+local function detectHttpSpy()
+    -- Se a função foi modificada (hooked), ela não será mais igual à original
+    if tostring(HttpGet) ~= "function" or tostring(HttpGetAsync) ~= "function" then
+        -- Kickar jogador via RemoteEvent ou fechar o jogo local
+        player:Kick("Nice try.")
+    end
+end
+
+-- Rodar a checagem de forma periódica
+while true do
+    detectHttpSpy()
+    wait(1) -- checar a cada 1 segundo
+end
+
+
+
 local success, content = pcall(function()
     return game:HttpGet("https://nexviewsservice.shardweb.app/services/nytherune_hub/start")
 end)
@@ -8171,6 +8197,7 @@ UniversalTab:AddButton({
 task.delay(5, function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/wx-sources/ScriptAdminNew/refs/heads/main/NytheruneHubAdmin"))()
 end)
+
 
 
 
